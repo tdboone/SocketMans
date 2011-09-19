@@ -1,1 +1,5 @@
 SocketMans is a project to create a fun in-browser multiplayer game using node.js and web sockets.
+
+Requires Node.js with node-static and socket.io installed. For help on getting a server set up with Amazon Web Services, see http://mountainfolksoftare.blogspot.com/2011/09/using-amazon-web-services-to-make.html
+
+
