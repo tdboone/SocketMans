@@ -12,16 +12,46 @@
 			border-color: black;
 			border-width: 3px;
 		}
+		#inventoryDiv
+		{
+			position: relative;
+			top: -450px;
+			left: 490px;
+		}
+		#instructionsDiv
+		{
+			width: 600px;
+			height: 250px;
+			margin-right: auto;
+			margin-left: auto;
+			position: relative;
+			top: -110px;
+		}
+		
 	</style>
 </head>
 <body>
 
-<br/><br/><br/>
-<canvas id="gamecanvas" width="800" height="600">
+<h1>Socket Mans!</h1>
+<canvas id="gameCanvas" width="800" height="600">
 	<h2>Get a browser that supports canvas, you dummy!</h2>
 </canvas>
 
-<div id="consolediv"></div>
+<div id="consolediv" height="50px"></div>
+
+<div id="inventoryDiv">
+<h3> Inventory: </h3>
+<canvas id="inventoryCanvas" width="75" height="75"></canvas>
+</div>
+
+<div id="instructionsDiv">
+	Welcome to Socket Mans! Use the left and right arrow keys to move and 
+	use the up arrow key to jump. Press the space bar to pick up a green block
+	below you into your inventory, and press the space bar with a green block in 
+	your inventory to drop the block at your current location. More socket mans 
+	appear and disappear as other players join and leave.<br/><br/>
+	(Careful with dropping blocks, as you can still get stuck in walls at this point.)
+</div>
 
 </body>
 

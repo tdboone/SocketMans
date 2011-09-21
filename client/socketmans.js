@@ -2,8 +2,12 @@
 var consoleDiv = document.getElementById('consolediv');
 
 //This idenifies the canvas element
-var canvas = document.getElementById('gamecanvas');
+var canvas = document.getElementById('gameCanvas');
 var ctx = canvas.getContext('2d');
+
+//This identifies the inventory canvas
+var invCanvas = document.getElementById('inventoryCanvas');
+var invctx = invCanvas.getContext('2d');
 
 var images = new Array(); //This is an array used to hold all the images to load
 var imageLoaded = new Array(); //This is an array of boolean values used to keep track of whether each image has been loaded
@@ -15,6 +19,10 @@ images.push(imgManStill);
 var imgGreenBlock = new Image();
 imgGreenBlock.src = 'GreenBlock.png';
 images.push(imgGreenBlock);
+
+var imgBlackBlock = new Image();
+imgBlackBlock.src = 'BlackBlock.png';
+images.push(imgBlackBlock);
 
 //This loop sets an onload event for each image to ensure that all images are loaded before the game starts
 for (var i = 0; i < images.length; i++){
@@ -52,6 +60,19 @@ var startGame = function(){
 		}
 	});
 	
+	socket.on('environment load', function(blocks){
+		envBlocks.blockLayout = blocks;
+	});
+	
+	socket.on('removeBlock', function(data){
+		envBlocks.blockLayout[data.row][data.column] = 0;
+	});
+	
+	socket.on('addBlock', function(data){
+		envBlocks.blockLayout[data.row][data.column] = data.type;
+	});
+		
+	
 	socket.on('player left', function(data){
 		delete otherPlayers[data.playerIndex];
 	});
@@ -83,7 +104,7 @@ var startGame = function(){
 		var endTime = new Date();
 		var t = (endTime.getTime() - startTime.getTime() < 35) ? 35 - (endTime.getTime() - startTime.getTime()) : 0;
 		window.setTimeout(gameCycle, t);
-		consoleDiv.innerHTML = "extra cycle time: " + t +"msec";
+		//consoleDiv.innerHTML = "extra cycle time: " + t +"msec";
 	}
 	
 	//This function is for updating the position and state of game objects.
@@ -123,6 +144,10 @@ var startGame = function(){
 		if (event.keyCode){
 			switch(event.keyCode)
 			{
+				case 32:
+					userMan.blockManipulate();
+					event.preventDefault();
+					break;
 				case 37:
 					userMan.moveLeftStart();
 					emitUpdate();
@@ -154,6 +179,10 @@ var startGame = function(){
 		}else if(event.key){
 			switch(event.key)
 			{
+				case 32:
+					userMan.blockManipulate();
+					event.preventDefault();
+					break;
 				case 37:
 					userMan.moveLeftStart();
 					emitUpdate();
@@ -225,6 +254,7 @@ var startGame = function(){
 		man.position = [400, 200];
 		man.width = 34;
 		man.height = 49;
+		man.inventory = 0;
 		man.update = function(){
 			man.position[0] += man.velocity[0];
 			if (man.position[0] >=0){
@@ -311,6 +341,55 @@ var startGame = function(){
 			man.velocity[0] += 5;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
 		}
+		man.blockManipulate = function(){
+			var blockRow = Math.floor((man.position[1]+man.height) / 50);
+			var blockColumn = Math.floor((man.position[0] + man.width / 2) / 50);
+			if (blockRow >= 0 && blockColumn >= 0){
+				if (man.inventory == 0){
+					switch(envBlocks.blockLayout[blockRow][blockColumn]){
+						case 0:
+							break;
+						case 1:
+							socket.emit('blockTakeRequest', {
+								row: blockRow,
+								column: blockColumn,
+							});
+							break;
+						case 2:
+							break;
+					}
+				}else{
+					switch(man.inventory){
+						case 1:
+							if (envBlocks.blockLayout[blockRow][blockColumn] == 0){
+								socket.emit('blockDropRequest', {
+									row: blockRow,
+									column: blockColumn,
+									type: 1,
+								});
+							}else if (blockRow > 0 && envBlocks.blockLayout[blockRow - 1][blockColumn] == 0){
+								socket.emit('blockDropRequest', {
+									row: (blockRow - 1),
+									column: blockColumn,
+									type: 1,
+								});
+							}
+					}
+				}
+			}
+		}
+		socket.on('Pickup', function(pickup){
+			man.inventory = pickup;
+			switch(pickup){
+				case 1:
+					invctx.drawImage(imgGreenBlock, 12.5, 12.5);
+					break;
+			}
+		});
+		socket.on('Drop', function(){
+			man.inventory = 0;
+			invctx.clearRect(0,0,75,75);			
+		});
 		
 		return man;
 	}
@@ -324,22 +403,29 @@ var startGame = function(){
 	//This defines the blocks used to make up the environment
 	var envBlocks = {
 		blockLayout : [	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-					[0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-					[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
-					[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-					[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-					[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-					[0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-					[0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0],
-					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0],
-					[0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
-					[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+					[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]],
 		draw : function(){
 			for (var i = 0; i < envBlocks.blockLayout.length; i++){
 				for (var j = 0; j < envBlocks.blockLayout[i].length; j++){
 					if (envBlocks.blockLayout[i][j]){
-						ctx.drawImage(imgGreenBlock, 50*j, 50*i);
+						switch(envBlocks.blockLayout[i][j]){
+						case 1:
+							ctx.drawImage(imgGreenBlock, 50*j, 50*i);
+							break;
+						case 2:
+							ctx.drawImage(imgBlackBlock, 50*j, 50*i);
+							break;
+						}
 					}
 				}
 			}
