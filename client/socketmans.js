@@ -92,19 +92,44 @@ var startGame = function(){
 	});
 	
 	
+	var frameTimes = new Array(10);
+	for (var i = 0; i < frameTimes.length; i++){
+		frameTimes[i] = 0;
+	}
+	var markFrameStart = function(){
+		var a = new Date();
+		for (var i = (frameTimes.length - 1); i > 0 ; i--){
+			frameTimes[i] = frameTimes[i-1];
+		}
+		frameTimes[0] = a.getTime();
+	}
+	
+	var getFrameRate = function(){
+		var avgTime = (frameTimes[0] - frameTimes[frameTimes.length - 1]) / frameTimes.length;
+		return Math.floor(1000 / avgTime);
+	}
+	
+	var getLatestFrameLength = function(){
+		return (frameTimes[0] - frameTimes[1]);
+	}
+	
 	gameCycle();
 	
 	//This is the basic cycle that is constantly repeating for the game to work. The timeouts are adjusted to make sure the 
 	//frame rate stays at around 30 fps (I don't want to use setInterval, b/c if a cycle takes longer than 35msec it may cause
 	//two game cycles to run at once)
 	function gameCycle(){
+		markFrameStart();
 		var startTime = new Date();
 		gameUpdate();
 		gameDraw();
 		var endTime = new Date();
 		var t = (endTime.getTime() - startTime.getTime() < 35) ? 35 - (endTime.getTime() - startTime.getTime()) : 0;
+		t -= Math.max((getLatestFrameLength() - 35), 0);
+		t = Math.max(0, t);
 		window.setTimeout(gameCycle, t);
-		//consoleDiv.innerHTML = "extra cycle time: " + t +"msec";
+		consoleDiv.innerHTML = "extra cycle time: " + t +"msec";
+		consoleDiv.innerHTML += "<br/>FPS: "+getFrameRate();
 	}
 	
 	//This function is for updating the position and state of game objects.
