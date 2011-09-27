@@ -47,7 +47,7 @@ var startGame = function(){
 	var gameObjects = new Array();
 	var otherPlayers = new Array();
 	
-	var socket = io.connect('http://www.goblynstomp.com');
+	var socket = io.connect('http://www.socketmans.com');
 	
 	socket.on('player joined', function(data){
 		otherPlayers[data.playerIndex] = new Man();
@@ -144,6 +144,9 @@ var startGame = function(){
 				otherPlayers[i].update();
 			}
 		}
+		if (chatInterface){
+			chatInterface.update();
+		}
 	}
 	
 	//This function clears the canvas and draws the current frame.
@@ -162,66 +165,61 @@ var startGame = function(){
 				otherPlayers[i].draw();
 			}
 		}
+		if (chatInterface){
+			chatInterface.draw();
+		}
 	}
 	
 	//This and the onkeyup functions are where you implement the controls.
 	window.onkeydown = function(event){
 		if (event.keyCode){
-			switch(event.keyCode)
-			{
-				case 32:
-					userMan.blockManipulate();
+			if (chatInterface.active){
+				if ( event.keyCode >= 65 && event.keyCode <= 90){
 					event.preventDefault();
-					break;
-				case 37:
-					userMan.moveLeftStart();
-					emitUpdate();
+					chatInterface.cursorCount = 15;
+					if (event.shiftKey){
+						chatInterface.displayString += String.fromCharCode(event.keyCode);
+					}else{
+						chatInterface.displayString += String.fromCharCode(event.keyCode + 32);
+					}
+				}else if (event.keyCode == 32){
 					event.preventDefault();
-					break;
-				case 38:
-					userMan.jump();
-					emitUpdate();
+					chatInterface.cursorCount = 15;
+					chatInterface.displayString += " ";
+				}else if (event.keyCode == 8){
 					event.preventDefault();
-					break;
-				case 39:
-					userMan.moveRightStart();
-					emitUpdate();
-					event.preventDefault();
-					break;
-				//case 65:
-				//	extraMan.moveLeftStart();
-				//	event.preventDefault();
-				//	break;
-				//case 68:
-				//	extraMan.moveRightStart();
-				//	event.preventDefault();
-				//	break;
-				//case 87:
-				//	extraMan.jump();
-				//	event.preventDefault();
-				//	break;
-			}
-		}else if(event.key){
-			switch(event.key)
-			{
-				case 32:
-					userMan.blockManipulate();
-					event.preventDefault();
-					break;
-				case 37:
-					userMan.moveLeftStart();
-					emitUpdate();
-					event.preventDefault();
-					break;
-				case 38:
-					userMan.jump();
-					emitUpdate();
-					event.preventDefault();
-				case 39:
-					userMan.moveRightStart();
-					emitUpdate();
-					event.preventDefault();
-					break;
+					chatInterface.cursorCount = 15;
+					chatInterface.displayString = chatInterface.displayString.slice(0, chatInterface.displayString.length - 1);
+				}else if (event.keyCode == 13){
+					chatInterface.active = false;
+				}
+			}else{			
+				switch(event.keyCode)
+				{
+					case 13:
+						chatInterface.active = true;
+						event.preventDefault();
+						break;
+					case 32:
+						userMan.blockManipulate();
+						event.preventDefault();
+						break;
+					case 37:
+						userMan.moveLeftStart();
+						emitUpdate();
+						event.preventDefault();
+						break;
+					case 38:
+						userMan.jump();
+						emitUpdate();
+						event.preventDefault();
+						break;
+					case 39:
+						userMan.moveRightStart();
+						emitUpdate();
+						event.preventDefault();
+						break;
+				}
 			}
 		}
 	}
@@ -229,24 +227,6 @@ var startGame = function(){
 	window.onkeyup = function(event){
 		if (event.keyCode){
 			switch(event.keyCode)
-			{
-				case 37:
-					userMan.moveLeftStop();
-					emitUpdate();
-					break;
-				case 39:
-					userMan.moveRightStop();
-					emitUpdate();
-					break;
-				//case 65:
-				//	extraMan.moveLeftStop();
-				//	break;
-				//case 68:
-				//	extraMan.moveRightStop();
-				//	break;
-			}
-		}else if(event.key){
-			switch(event.key)
 			{
 				case 37:
 					userMan.moveLeftStop();
@@ -422,9 +402,6 @@ var startGame = function(){
 	var userMan = new Man();
 	gameObjects.push(userMan);
 	
-	//var extraMan = new Man();
-	//gameObjects.push(extraMan);
-	
 	//This defines the blocks used to make up the environment
 	var envBlocks = {
 		blockLayout : [	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -454,6 +431,35 @@ var startGame = function(){
 					}
 				}
 			}
-		}
+		},
+	}
+	
+	var chatInterface = {
+		active : false,
+		displayString : "",
+		cursorCount: 0,
+		draw : function(){
+			if (chatInterface.active){
+				ctx.font = "bold 20px sans-serif";
+				ctx.fillStyle = "#ffffff";
+				ctx.fillRect(15, 552, 770, 30);
+				ctx.strokeRect(15, 552, 770, 30);
+				ctx.fillStyle = "#000000";				
+				ctx.fillText("Chat:", 20, 575);
+				if (Math.floor(chatInterface.cursorCount / 15) == 0){
+					ctx.fillText(chatInterface.displayString, 75, 575);
+				}else{
+					ctx.fillText(chatInterface.displayString + "|", 75, 575);
+				}
+			}
+		},
+		update : function(){
+			if (chatInterface.active){
+				chatInterface.cursorCount++;
+				if (chatInterface.cursorCount >=30){
+					chatInterface.cursorCount = 0;
+				}
+			}
+		},
 	}
 }
