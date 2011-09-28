@@ -91,6 +91,10 @@ var startGame = function(){
 		otherPlayers[data.playerIndex].velocity = data.velocity;
 	});
 	
+	socket.on('shareMessage', function(data){
+		otherPlayers[data.playerIndex].addSpeechBubble(data.message);
+	});
+	
 	
 	var frameTimes = new Array(10);
 	for (var i = 0; i < frameTimes.length; i++){
@@ -192,6 +196,11 @@ var startGame = function(){
 					chatInterface.displayString = chatInterface.displayString.slice(0, chatInterface.displayString.length - 1);
 				}else if (event.keyCode == 13){
 					chatInterface.active = false;
+					if (chatInterface.displayString){
+						socket.emit('sendMessage', chatInterface.displayString);
+						userMan.addSpeechBubble(chatInterface.displayString);
+						chatInterface.displayString = "";
+					}
 				}
 			}else{			
 				switch(event.keyCode)
@@ -323,9 +332,18 @@ var startGame = function(){
 					man.velocity[1] = 0;			
 				}
 			}
+			if (man.hasSpeechBubble){
+				man.speechBubbleCounter--;
+				if (man.speechBubbleCounter <= 0){
+					man.hasSpeechBubble = false;
+				}
+			}
 		}
 		man.draw = function(){
 			ctx.drawImage(imgManStill, man.position[0], man.position[1], man.width, man.height);
+			if (man.hasSpeechBubble){
+				man.drawSpeechBubble();
+			}
 		}
 		man.jump = function(){
 			man.velocity[1] = -18;
@@ -345,6 +363,63 @@ var startGame = function(){
 		man.moveLeftStop = function(){
 			man.velocity[0] += 5;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
+		}
+		man.addSpeechBubble = function(statement){
+			man.hasSpeechBubble = true;
+			man.speechBubbleCounter = 150;
+			ctx.font = "bold 20px sans-serif";
+			if (ctx.measureText(statement).width <= 230){
+				man.sBWidth = ctx.measureText(statement).width + 20;
+				man.sBHeight = 50;
+				man.statement = new Array(0);
+				man.statement[0] = statement;
+			}else{
+				man.sBWidth = 250;
+				man.statement = new Array(0);
+				var splitStatement = statement.split(" ");
+				var currentRow = 0;
+				var currentWidth = 0;
+				var spaceWidth = ctx.measureText(" ").width;
+				console.log("Space Width: " + spaceWidth);
+				for (var i = 0; i < splitStatement.length; i++){
+					if (currentWidth == 0){
+						man.statement[currentRow] = "";
+						if (ctx.measureText(splitStatement[i]).width < 230){
+							man.statement[currentRow] += splitStatement[i];
+							currentWidth += ctx.measureText(splitStatement[i]).width;
+						}else{
+							for (var j = 1; j <= splitStatement[i].length; j++){
+								if (ctx.measureText(splitStatement[i].slice(0, -j)+"-").width < 230){
+									man.statement[currentRow] += splitStatement[i].slice(0, -j)+"-";
+									splitStatement[i] = splitStatement[i].slice(-j, splitStatement[i].length);
+									currentRow++;
+									currentWidth = 0;
+									i--; //This is the same as redoing this iteration on a new row
+									break;
+								}
+							}
+						}
+					}else{
+						if (currentWidth + spaceWidth + ctx.measureText(splitStatement[i]).width < 230){
+							man.statement[currentRow] += " "+splitStatement[i];
+							currentWidth += ctx.measureText(splitStatement[i]).width;
+						}else{
+							currentRow++;
+							currentWidth = 0;
+							i --; //This is the same as redoing this iteration on a new row
+						}
+					}
+				}
+				man.sBHeight = 20 + 25*man.statement.length;				
+			}
+		}
+		man.drawSpeechBubble = function(){
+			drawSpeechBubble(man.position[0], man.position[1], man.sBWidth, man.sBHeight);
+			ctx.fillStyle="#000000";
+			ctx.font = "bold 20px sans-serif";
+			for (var i = 0; i < man.statement.length; i++){
+				ctx.fillText(man.statement[i], man.position[0] + 42, man.position[1] - man.sBHeight + 7 + 25*i);
+			}
 		}
 		man.blockManipulate = function(){
 			var blockRow = Math.floor((man.position[1]+man.height) / 50);
@@ -461,5 +536,23 @@ var startGame = function(){
 				}
 			}
 		},
+	}
+	
+	var drawSpeechBubble = function(x, y, width, height){
+		width = Math.max(width, 50);
+		height = Math.max(height, 50);
+		ctx.beginPath();  
+		ctx.moveTo(x+35,y-height-20);  
+		ctx.lineTo(x+35,y-20);  
+		ctx.lineTo(x+60,y-20);  
+		ctx.quadraticCurveTo(x+60,y,x+40,y+5);  
+		ctx.quadraticCurveTo(x+70,y,x+75,y-20);  
+		ctx.lineTo(x+35+width,y-20);  
+		ctx.lineTo(x+35+width,y-height-20);
+		ctx.lineTo(x+35,y-height-20);
+		ctx.fillStyle = "#ffffff";
+		ctx.fill();
+		ctx.strokeStyle = "#000000";
+		ctx.stroke();
 	}
 }

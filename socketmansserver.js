@@ -68,6 +68,13 @@ io.sockets.on('connection', function(socket){
 		});
 	});
 	
+	socket.on('sendMessage', function(messageToShare){
+		socket.broadcast.emit('shareMessage', {
+			playerIndex : socket.playerIndex,
+			message : messageToShare,			
+		});
+	});
+	
 	socket.on('blockTakeRequest', function(data){
 		if (blocks[data.row][data.column] == 1){
 			blocks[data.row][data.column] = 0;
