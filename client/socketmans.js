@@ -402,7 +402,7 @@ var startGame = function(){
 					}else{
 						if (currentWidth + spaceWidth + ctx.measureText(splitStatement[i]).width < 230){
 							man.statement[currentRow] += " "+splitStatement[i];
-							currentWidth += ctx.measureText(splitStatement[i]).width;
+							currentWidth += ctx.measureText(" "+splitStatement[i]).width;
 						}else{
 							currentRow++;
 							currentWidth = 0;
