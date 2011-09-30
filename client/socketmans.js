@@ -62,6 +62,7 @@ var startGame = function(){
 	
 	socket.on('environment load', function(blocks){
 		envBlocks.blockLayout = blocks;
+		gameCycle();
 	});
 	
 	socket.on('removeBlock', function(data){
@@ -116,9 +117,7 @@ var startGame = function(){
 	var getLatestFrameLength = function(){
 		return (frameTimes[0] - frameTimes[1]);
 	}
-	
-	gameCycle();
-	
+		
 	//This is the basic cycle that is constantly repeating for the game to work. The timeouts are adjusted to make sure the 
 	//frame rate stays at around 30 fps (I don't want to use setInterval, b/c if a cycle takes longer than 35msec it may cause
 	//two game cycles to run at once)
@@ -176,6 +175,8 @@ var startGame = function(){
 	
 	//This and the onkeyup functions are where you implement the controls.
 	window.onkeydown = function(event){
+		
+		
 		if (event.keyCode){
 			if (chatInterface.active){
 				if ( event.keyCode >= 65 && event.keyCode <= 90){
@@ -186,10 +187,6 @@ var startGame = function(){
 					}else{
 						chatInterface.displayString += String.fromCharCode(event.keyCode + 32);
 					}
-				}else if (event.keyCode == 32){
-					event.preventDefault();
-					chatInterface.cursorCount = 15;
-					chatInterface.displayString += " ";
 				}else if (event.keyCode == 8){
 					event.preventDefault();
 					chatInterface.cursorCount = 15;
@@ -201,6 +198,51 @@ var startGame = function(){
 						userMan.addSpeechBubble(chatInterface.displayString);
 						chatInterface.displayString = "";
 					}
+				}else{
+					var charMap = function(code, lower, upper){
+						if (event.keyCode == code){
+							if (event.shiftKey && upper){
+								chatInterface.displayString += upper;
+							}else{
+								chatInterface.displayString += lower;
+							}
+							chatInterface.cursorCount = 15;
+							event.preventDefault();
+						}
+					}
+					charMap(32, " ");
+					charMap(48, "0", ")");
+					charMap(49, "1", "!");
+					charMap(50, "2", "@");
+					charMap(51, "3", "#");
+					charMap(52, "4", "$");
+					charMap(53, "5", "%");
+					charMap(54, "6", "^");
+					charMap(55, "7", "&");
+					charMap(56, "8", "*");
+					charMap(57, "9", "(");
+					charMap(96, "0");
+					charMap(97, "1");
+					charMap(98, "2");
+					charMap(99, "3");
+					charMap(100, "4");
+					charMap(101, "5");
+					charMap(102, "6");
+					charMap(103, "7");
+					charMap(104, "8");
+					charMap(105, "9");
+					charMap(106, "*");
+					charMap(107, "+");
+					charMap(109, "-");
+					charMap(110, ".");
+					charMap(111, "/");
+					charMap(186, ";", ":");
+					charMap(187, "=", "+");
+					charMap(188, ",", "<");
+					charMap(189, "-", "_");
+					charMap(190, ".", ">");
+					charMap(191, "/", "?");
+					charMap(222, "\'", "\"");
 				}
 			}else{			
 				switch(event.keyCode)
