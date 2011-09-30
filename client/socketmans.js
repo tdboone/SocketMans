@@ -71,6 +71,22 @@ var startGame = function(){
 	
 	socket.on('addBlock', function(data){
 		envBlocks.blockLayout[data.row][data.column] = data.type;
+		userMan.position[1]-=0.1; //When a man is standing on a block, he actually is overlapping the very top of it,
+						    //so this prevents the man from re-centering unnecessarily if he's partially standing
+						    //on another block when dropping his block
+		if (userMan.isInBlock(data.row, data.column)){
+			console.log("Player must be moved from "+data.row+", "+data.column+".");
+			if (envBlocks.blockLayout[data.row - 1][data.column] == 0){
+				userMan.position = [ data.column*50 + (50 - userMan.width) / 2,(data.row - 1) * 50 + (50 - userMan.height) / 2 ];
+				console.log("Player was moved to "+(data.row - 1)+", "+data.column+".");
+			}else if (envBlocks.blockLayout[data.row][data.column - 1] == 0){
+				userMan.position = [ (data.column - 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
+				console.log("Player was moved to "+data.row+", "+(data.column - 1)+".");
+			}else if (envBlocks.blockLayout[data.row][data.column + 1] == 0){
+				userMan.position = [ (data.column + 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
+				console.log("Player was moved to "+data.row+", "+(data.column + 1)+".");
+			}
+		}
 	});
 		
 	
@@ -387,6 +403,14 @@ var startGame = function(){
 				man.drawSpeechBubble();
 			}
 		}
+		man.isInBlock = function(row, column){
+			if ((column + 1)*50 >= man.position[0] && man.position[0] + man.width >= column * 50){
+				if ((row + 1) * 50 > man.position[1] && man.position[1] + man.height >= row * 50){
+					return true;
+				}
+			}
+			return false;
+		}
 		man.jump = function(){
 			man.velocity[1] = -18;
 		}
@@ -468,6 +492,18 @@ var startGame = function(){
 			var blockColumn = Math.floor((man.position[0] + man.width / 2) / 50);
 			if (blockRow >= 0 && blockColumn >= 0){
 				if (man.inventory == 0){
+					//These two if statements allow the player to grab a block from the left or the right if he is pushing against a wall
+					if (man.velocity[0] > 0){
+						if (envBlocks.blockLayout[blockRow - 1][Math.floor((man.position[0] + man.width + 1)/50)] != 0){
+							blockRow--;
+							blockColumn = Math.floor((man.position[0] + man.width + 1)/50);
+						}
+					}else if (man.velocity[0] < 0){
+						if (envBlocks.blockLayout[blockRow - 1][Math.floor((man.position[0] - 1)/50)] != 0){
+							blockRow--;
+							blockColumn = Math.floor((man.position[0] - 1)/50);
+						}
+					}
 					switch(envBlocks.blockLayout[blockRow][blockColumn]){
 						case 0:
 							break;
