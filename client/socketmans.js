@@ -98,7 +98,7 @@ var startGame = function(){
 		if (userMan){
 			socket.emit('clientManUpdate', {
 				position : userMan.position,
-				velocity: userMan.velocity,
+				velocity: userMan.velocity
 			});
 		}
 	}
@@ -170,7 +170,9 @@ var startGame = function(){
 	
 	//This function clears the canvas and draws the current frame.
 	function gameDraw(){
+		ctx.save();		
 		ctx.clearRect(0, 0, 800, 600);
+		moveFrame();
 		if (envBlocks){
 			envBlocks.draw();
 		}
@@ -183,7 +185,8 @@ var startGame = function(){
 			if (otherPlayers[i]){
 				otherPlayers[i].draw();
 			}
-		}
+		}		
+		ctx.restore();
 		if (chatInterface){
 			chatInterface.draw();
 		}
@@ -323,7 +326,7 @@ var startGame = function(){
 	function Man(){
 		var man = new GameObject();
 		man.velocity = [0, 0];
-		man.position = [400, 200];
+		man.position = [400, -100];
 		man.width = 34;
 		man.height = 49;
 		man.inventory = 0;
@@ -347,7 +350,7 @@ var startGame = function(){
 				man.position[0] = 0;
 			}
 			
-			if (man.position[0] + man.width <= 800){
+			if (man.position[0] + man.width <= 50*envBlocks.blockLayout[0].length){
 				if (man.position[1] + 1>= 0){
 					var hTopRightBlock = envBlocks.blockLayout[Math.floor((man.position[1] + 1) / 50)]
 												[Math.floor((man.position[0]+man.width) / 50)];
@@ -360,7 +363,7 @@ var startGame = function(){
 					man.position[0] = man.position[0] - ((man.position[0]+man.width) % 50) - 1;
 				}
 			}else{
-				man.position[0] = 800 - man.width;
+				man.position[0] = 50*envBlocks.blockLayout[0].length - man.width;
 			}			
 			
 			man.position[1] += man.velocity[1];
@@ -415,20 +418,20 @@ var startGame = function(){
 			man.velocity[1] = -18;
 		}
 		man.moveRightStart = function(){
-			man.velocity[0] += 5;
-			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
+			man.velocity[0] += 9;
+			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
 		man.moveRightStop = function(){
-			man.velocity[0] -= 5;
-			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
+			man.velocity[0] -= 9;
+			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
 		man.moveLeftStart = function(){
-			man.velocity[0] += -5;
-			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
+			man.velocity[0] += -9;
+			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
 		man.moveLeftStop = function(){
-			man.velocity[0] += 5;
-			man.velocity[0] = Math.max(Math.min(man.velocity[0], 5), -5);
+			man.velocity[0] += 9;
+			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
 		man.addSpeechBubble = function(statement){
 			man.hasSpeechBubble = true;
@@ -510,7 +513,7 @@ var startGame = function(){
 						case 1:
 							socket.emit('blockTakeRequest', {
 								row: blockRow,
-								column: blockColumn,
+								column: blockColumn
 							});
 							break;
 						case 2:
@@ -523,13 +526,13 @@ var startGame = function(){
 								socket.emit('blockDropRequest', {
 									row: blockRow,
 									column: blockColumn,
-									type: 1,
+									type: 1
 								});
 							}else if (blockRow > 0 && envBlocks.blockLayout[blockRow - 1][blockColumn] == 0){
 								socket.emit('blockDropRequest', {
 									row: (blockRow - 1),
 									column: blockColumn,
-									type: 1,
+									type: 1
 								});
 							}
 					}
@@ -584,7 +587,7 @@ var startGame = function(){
 					}
 				}
 			}
-		},
+		}
 	}
 	
 	var chatInterface = {
@@ -613,7 +616,7 @@ var startGame = function(){
 					chatInterface.cursorCount = 0;
 				}
 			}
-		},
+		}
 	}
 	
 	var drawSpeechBubble = function(x, y, width, height){
@@ -632,5 +635,11 @@ var startGame = function(){
 		ctx.fill();
 		ctx.strokeStyle = "#000000";
 		ctx.stroke();
+	}
+	
+	var moveFrame = function(){
+		var xTranslate = Math.max(Math.min(-userMan.position[0] + 400, 0), 800 - envBlocks.blockLayout[0].length*50);
+		var yTranslate = Math.max(Math.min(-userMan.position[1] + 300, 0), 600 - envBlocks.blockLayout.length*50);
+		ctx.translate(xTranslate, yTranslate);
 	}
 }
