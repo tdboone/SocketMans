@@ -11,26 +11,16 @@ var invctx = invCanvas.getContext('2d');
 
 var images = new Array(); //This is an array used to hold all the images to load
 var imageLoaded = new Array(); //This is an array of boolean values used to keep track of whether each image has been loaded
-
-var imgManStill = new Image();
-imgManStill.src = 'ManStill.png';
-images.push(imgManStill);
-
-var imgGreenBlock = new Image();
-imgGreenBlock.src = 'GreenBlock.png';
-images.push(imgGreenBlock);
-
-var imgBlackBlock = new Image();
-imgBlackBlock.src = 'BlackBlock.png';
-images.push(imgBlackBlock);
-
-//This loop sets an onload event for each image to ensure that all images are loaded before the game starts
-for (var i = 0; i < images.length; i++){
-	imageLoaded[i] = false;
-	images[i].onload = function(a){
+var addImage = function(srcName){ //This function is used to create an image, and add onload functions to have
+						   //the game start when all images are laoded.
+	var a = new Image();
+	images.push(a); 
+	var index = images.length - 1;
+	imageLoaded[index] = false;
+	a.onload = function(i){
 		return function(){
-			imageLoaded[a] = true;
-			console.log(images[a].src+" loaded.");
+			imageLoaded[i] = true;
+			console.log(images[i].src+" loaded.");
 			for (var j = 0; j < imageLoaded.length; j++){
 				if (!imageLoaded[j]){
 					return;
@@ -39,8 +29,16 @@ for (var i = 0; i < images.length; i++){
 			console.log("Starting Game...");
 			startGame();
 		}
-	}(i);
+	}(index);
+	a.src = srcName;
+	return a;
 }
+
+var imgManRun = addImage('ManRun2.png');
+var imgManStand = addImage('ManStand1.png');
+var imgManJump = addImage('ManJump1.png');
+var imgGreenBlock = addImage('GreenBlock.png');
+var imgBlackBlock = addImage('BlackBlock.png');
 
 var startGame = function(){
 	
@@ -330,8 +328,15 @@ var startGame = function(){
 		man.width = 34;
 		man.height = 49;
 		man.inventory = 0;
+		man.inAir = false;
+		man.lastFacing = 1; //The direction the man was last moving in
 		man.update = function(){
 			man.position[0] += man.velocity[0];
+			if (man.velocity[0] > 0){
+				man.lastFacing = 1;
+			}else if (man.velocity[0] < 0){
+				man.lastFacing = -1;
+			}
 			if (man.position[0] >=0){
 				//we need to subtract 1 from the vertical position for the bottom corners, otherwise when the man is standing on a platform it's think he's hittng a wall too
 				//likewise, we need to add 1 to the vertical position for the top corners, so it doesn't detect horizontal collisions when a man hits his head on the ceiling
@@ -378,6 +383,9 @@ var startGame = function(){
 				if (man.velocity[1] >= 0 && (botLeftBlock || botRightBlock)){
 					man.position[1] = Math.floor((man.position[1]+man.height) / 50) * 50 - man.height;
 					man.velocity[1] = 0;
+					man.inAir = false;
+				}else{
+					man.inAir = true;
 				}
 			}
 			if (man.position[1] >= 0){
@@ -400,8 +408,37 @@ var startGame = function(){
 				}
 			}
 		}
-		man.draw = function(){
-			ctx.drawImage(imgManStill, man.position[0], man.position[1], man.width, man.height);
+		man.runAnimation = new Animation(imgManRun, 16, 1);
+		man.standAnimation = new Animation(imgManStand, 8, 2);
+		man.draw = function(){			
+			if (man.inAir){
+				if (man.lastFacing > 0){
+					ctx.drawImage(imgManJump, man.position[0], man.position[1]);
+				}else{
+					ctx.save();
+					ctx.scale(-1, 1);
+					ctx.drawImage(imgManJump, -man.position[0]-man.width, man.position[1]);
+					ctx.restore();
+				}
+			}else if (man.velocity[0] > 0){
+				man.runAnimation.position[0] = man.position[0];
+				man.runAnimation.position[1] = man.position[1];
+				man.runAnimation.draw();
+				man.runAnimation.update();
+			}else if(man.velocity[0] < 0){
+				man.runAnimation.position[0] = -man.position[0] - man.width;
+				man.runAnimation.position[1] = man.position[1];				
+				ctx.save();
+				ctx.scale(-1, 1);
+				man.runAnimation.draw();
+				man.runAnimation.update();
+				ctx.restore();
+			}else{
+				man.standAnimation.position[0] = man.position[0];
+				man.standAnimation.position[1] = man.position[1];
+				man.standAnimation.draw();
+				man.standAnimation.update();
+			}
 			if (man.hasSpeechBubble){
 				man.drawSpeechBubble();
 			}
@@ -641,5 +678,34 @@ var startGame = function(){
 		var xTranslate = Math.max(Math.min(-userMan.position[0] + 400, 0), 800 - envBlocks.blockLayout[0].length*50);
 		var yTranslate = Math.max(Math.min(-userMan.position[1] + 300, 0), 600 - envBlocks.blockLayout.length*50);
 		ctx.translate(xTranslate, yTranslate);
+	}
+	
+	
+}
+
+var Animation = function(image, numFrames, cyclesPerFrame){
+	if (!cyclesPerFrame){
+		cyclesPerFrame = 1;
+	}
+	this.width = Math.floor(image.width / numFrames);
+	this.height = image.height;
+	this.position = [0,0];
+	this.currentFrame = 0;
+	this.update = function(){
+		this.currentFrame++;
+		if (this.currentFrame >= (numFrames*cyclesPerFrame)){
+			this.currentFrame = 0;
+		}
+	}
+	this.draw = function(){
+		ctx.drawImage(	image, 
+					Math.floor(image.width / numFrames * Math.floor(this.currentFrame/cyclesPerFrame)),
+					0,
+					this.width,
+					this.height,
+					this.position[0],
+					this.position[1],
+					this.width,
+					this.height);
 	}
 }
