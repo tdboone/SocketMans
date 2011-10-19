@@ -5,7 +5,7 @@ var consoleDiv = document.getElementById('consolediv');
 var canvas = document.getElementById('gameCanvas');
 var ctx = canvas.getContext('2d');
 
-//This identifies the inventory canvas
+//This identifies the inventory canvas, which displays whether your character is holding something
 var invCanvas = document.getElementById('inventoryCanvas');
 var invctx = invCanvas.getContext('2d');
 
@@ -34,6 +34,7 @@ var addImage = function(srcName){ //This function is used to create an image, an
 	return a;
 }
 
+//These are the images to load for the game
 var imgManRun = addImage('ManRun2.png');
 var imgManStand = addImage('ManStand1.png');
 var imgManJump = addImage('ManJump1.png');
@@ -42,31 +43,41 @@ var imgBlackBlock = addImage('BlackBlock.png');
 
 var startGame = function(){
 	
+	//Right now the game objects array is just used to hold the user's character, but if other different objects
+	//are added they could go in here too.
 	var gameObjects = new Array();
+	//This array is used to store all of the other players. NOTE: The indices for each player in this array correspond
+	//to their indices in the array on the server. This means that there will be a blank spot in this array corresponding
+	//to the index of the current player.
 	var otherPlayers = new Array();
 	
 	var socket = io.connect('http://www.socketmans.com');
 	
+	//This adds a player to the clients playspace when a new user joins.
 	socket.on('player joined', function(data){
 		otherPlayers[data.playerIndex] = new Man();
 		emitUpdate();
 	});
 	
+	//This adds all existing players when the current user first joins.
 	socket.on('existing players', function(existingPlayers){
 		for (var i = 0; i < existingPlayers.length; i++){
 			otherPlayers[existingPlayers[i]] = new Man();
 		}
 	});
 	
+	//This receives the environment block layout from the server and starts the game cycle once that happens.
 	socket.on('environment load', function(blocks){
 		envBlocks.blockLayout = blocks;
 		gameCycle();
 	});
 	
+	//This removes a block when any player has a successful remove block request go through the server
 	socket.on('removeBlock', function(data){
 		envBlocks.blockLayout[data.row][data.column] = 0;
 	});
 	
+	//This adds a block when a user successfully completes an add block request through the server. This also displaces the user's character if necessary.
 	socket.on('addBlock', function(data){
 		envBlocks.blockLayout[data.row][data.column] = data.type;
 		userMan.position[1]-=0.1; //When a man is standing on a block, he actually is overlapping the very top of it,
@@ -74,24 +85,30 @@ var startGame = function(){
 						    //on another block when dropping his block
 		if (userMan.isInBlock(data.row, data.column)){
 			console.log("Player must be moved from "+data.row+", "+data.column+".");
+			//If the space above the block being dropped is open, just move the player there.
 			if (envBlocks.blockLayout[data.row - 1][data.column] == 0){
 				userMan.position = [ data.column*50 + (50 - userMan.width) / 2,(data.row - 1) * 50 + (50 - userMan.height) / 2 ];
 				console.log("Player was moved to "+(data.row - 1)+", "+data.column+".");
+			//Otherwise, if the space to the left of the block being dropped is open, move the player there.
 			}else if (envBlocks.blockLayout[data.row][data.column - 1] == 0){
 				userMan.position = [ (data.column - 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
 				console.log("Player was moved to "+data.row+", "+(data.column - 1)+".");
+			//Otherwise, if the space to the right of the block being dropped is open, move the player there.
 			}else if (envBlocks.blockLayout[data.row][data.column + 1] == 0){
 				userMan.position = [ (data.column + 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
 				console.log("Player was moved to "+data.row+", "+(data.column + 1)+".");
 			}
+			//Since the client only displaces it's own character, emit an update to let other clients know where you ended up.
+			emitUpdate();
 		}
 	});
 		
-	
+	//When another client quits, this removes their character
 	socket.on('player left', function(data){
 		delete otherPlayers[data.playerIndex];
 	});
 	
+	//This sends an update to the current player's position and velocity to share with everyone else
 	function emitUpdate(){
 		if (userMan){
 			socket.emit('clientManUpdate', {
@@ -101,20 +118,23 @@ var startGame = function(){
 		}
 	}
 	
+	//This implements another client's position and velocity update
 	socket.on('serverManUpdate', function(data){
 		otherPlayers[data.playerIndex].position = data.position;
 		otherPlayers[data.playerIndex].velocity = data.velocity;
 	});
 	
+	//This adds a speech bubble display to another character who has sent a message
 	socket.on('shareMessage', function(data){
 		otherPlayers[data.playerIndex].addSpeechBubble(data.message);
 	});
 	
-	
+	//This array is used to keep track of the start time of the last ten frames to keep track of the average frame rate
 	var frameTimes = new Array(10);
 	for (var i = 0; i < frameTimes.length; i++){
 		frameTimes[i] = 0;
 	}
+	//This function is called at the start of each frame to mark the system time in the above array
 	var markFrameStart = function(){
 		var a = new Date();
 		for (var i = (frameTimes.length - 1); i > 0 ; i--){
@@ -123,11 +143,13 @@ var startGame = function(){
 		frameTimes[0] = a.getTime();
 	}
 	
+	//This function uses the frameTimes array to calculate the frame rate over the last 10 frames
 	var getFrameRate = function(){
 		var avgTime = (frameTimes[0] - frameTimes[frameTimes.length - 1]) / frameTimes.length;
 		return Math.floor(1000 / avgTime);
 	}
 	
+	//This function returns the length of the most recent frame in milliseconds
 	var getLatestFrameLength = function(){
 		return (frameTimes[0] - frameTimes[1]);
 	}
@@ -138,13 +160,21 @@ var startGame = function(){
 	function gameCycle(){
 		markFrameStart();
 		var startTime = new Date();
+		//call the update and draw functions, which form the meat of the game function
 		gameUpdate();
-		gameDraw();
+		gameDraw();		
 		var endTime = new Date();
+		//The difference between the startTime and endTime is the amount of time it takes gameUpdate and gameDraw to execute.
+		//This time is then subtracted from the desired frame length (35msec) to determine the setTimeout time
 		var t = (endTime.getTime() - startTime.getTime() < 35) ? 35 - (endTime.getTime() - startTime.getTime()) : 0;
+		//If the previous frame ran longer than 35 msec, then subtract the difference from the setTimeout time. While this means an exceptionally
+		//long frame is followed by a shorter-than-normal one, this compensting keeps the overall frame rate more consistent.
 		t -= Math.max((getLatestFrameLength() - 35), 0);
 		t = Math.max(0, t);
+		//Once an appropriate idle time has been calculated, setTimeout is called to perform the game cycle once more.
 		window.setTimeout(gameCycle, t);
+		//ConsoleDiv is used right now to keep track of the idle time and average frame rate, as a monitor of how close the Draw and Update cycles
+		//are to having too much going on.
 		consoleDiv.innerHTML = "extra cycle time: " + t +"msec";
 		consoleDiv.innerHTML += "<br/>FPS: "+getFrameRate();
 	}
@@ -168,16 +198,20 @@ var startGame = function(){
 	
 	//This function clears the canvas and draws the current frame.
 	function gameDraw(){
-		ctx.save();		
+		ctx.save();	 //Because transformations are used to follow the player around, the context is saved and restored through each cycle so
+				 //that all transformations can be performed from the zero position
 		ctx.clearRect(0, 0, 800, 600);
-		moveFrame();
+		moveFrame(); //This function translates the visible window to follow the player
+		//Draw the blocks that make up the environment
 		if (envBlocks){
 			envBlocks.draw();
 		}
+		//Draw all game objects (right now just the user's character)
 		for (var i = 0; i < gameObjects.length; i++)
 		{
 			gameObjects[i].draw();
 		}
+		//Draw everyone else's characters
 		for (var i = 0; i < otherPlayers.length; i++)
 		{
 			if (otherPlayers[i]){
@@ -185,17 +219,19 @@ var startGame = function(){
 			}
 		}		
 		ctx.restore();
+		//If the chat interface is in use then draw it
 		if (chatInterface){
 			chatInterface.draw();
 		}
 	}
 	
 	//This and the onkeyup functions are where you implement the controls.
-	window.onkeydown = function(event){
-		
+	window.onkeydown = function(event){		
 		
 		if (event.keyCode){
+			//This if statment contains all the keystrokes picked up by the chat interface
 			if (chatInterface.active){
+				//This is where all the letters are assigned their keystrokes
 				if ( event.keyCode >= 65 && event.keyCode <= 90){
 					event.preventDefault();
 					chatInterface.cursorCount = 15;
@@ -204,10 +240,12 @@ var startGame = function(){
 					}else{
 						chatInterface.displayString += String.fromCharCode(event.keyCode + 32);
 					}
+				//This handles the backspace key
 				}else if (event.keyCode == 8){
 					event.preventDefault();
 					chatInterface.cursorCount = 15;
 					chatInterface.displayString = chatInterface.displayString.slice(0, chatInterface.displayString.length - 1);
+				//This handles the enter key, which sends the message if there's one there, and removes the chat interface display
 				}else if (event.keyCode == 13){
 					chatInterface.active = false;
 					if (chatInterface.displayString){
@@ -215,6 +253,7 @@ var startGame = function(){
 						userMan.addSpeechBubble(chatInterface.displayString);
 						chatInterface.displayString = "";
 					}
+				//This handles numbers and special characters by using the charMap function to assign them to their keycodes
 				}else{
 					var charMap = function(code, lower, upper){
 						if (event.keyCode == code){
@@ -228,6 +267,7 @@ var startGame = function(){
 						}
 					}
 					charMap(32, " ");
+					//Top row number keys:
 					charMap(48, "0", ")");
 					charMap(49, "1", "!");
 					charMap(50, "2", "@");
@@ -238,6 +278,7 @@ var startGame = function(){
 					charMap(55, "7", "&");
 					charMap(56, "8", "*");
 					charMap(57, "9", "(");
+					//Number pad keys:
 					charMap(96, "0");
 					charMap(97, "1");
 					charMap(98, "2");
@@ -253,6 +294,7 @@ var startGame = function(){
 					charMap(109, "-");
 					charMap(110, ".");
 					charMap(111, "/");
+					//Punctuation keys:
 					charMap(186, ";", ":");
 					charMap(187, "=", "+");
 					charMap(188, ",", "<");
@@ -261,17 +303,21 @@ var startGame = function(){
 					charMap(191, "/", "?");
 					charMap(222, "\'", "\"");
 				}
-			}else{			
+			}else{	
+				//If the chat interface is not active, this picks up the other keystrokes
 				switch(event.keyCode)
 				{
+					//Press enter to bring up the chat interface
 					case 13:
 						chatInterface.active = true;
 						event.preventDefault();
 						break;
+					//Space bar is used for block manipulation
 					case 32:
 						userMan.blockManipulate();
 						event.preventDefault();
 						break;
+					//Left, right and up arrows are used for running and jumping
 					case 37:
 						userMan.moveLeftStart();
 						emitUpdate();
@@ -296,6 +342,7 @@ var startGame = function(){
 		if (event.keyCode){
 			switch(event.keyCode)
 			{
+				//The character stops moving to the left or to the right when the left or right arrow is released.
 				case 37:
 					userMan.moveLeftStop();
 					emitUpdate();
@@ -308,6 +355,7 @@ var startGame = function(){
 		}
 	}
 	
+	//GameObject is meant to be a class for all game objects to inherit from, but right now that just includes player characters
 	function GameObject(){
 		this.position = new Array(2);
 		this.width = 1;
@@ -321,22 +369,28 @@ var startGame = function(){
 		};
 	}
 	
+	//"Man" is the prototype for all ;player characters
 	function Man(){
 		var man = new GameObject();
 		man.velocity = [0, 0];
+		//Players start above the visible playing field to keep them from getting stuck in a block upon loading or something
 		man.position = [400, -100];
 		man.width = 34;
 		man.height = 49;
 		man.inventory = 0;
-		man.inAir = false;
-		man.lastFacing = 1; //The direction the man was last moving in
+		man.inAir = false; //Whether the man is currently in the air
+		man.lastFacing = 1; //The direction the man was last moving in (right = 1, left = -1)
 		man.update = function(){
+			//The first thing to update is to move the man horizontally according to his horizontal velocity
 			man.position[0] += man.velocity[0];
+			//Set the "last facing" property appropriately
 			if (man.velocity[0] > 0){
 				man.lastFacing = 1;
 			}else if (man.velocity[0] < 0){
 				man.lastFacing = -1;
 			}
+			//This if statement determines if a man is colliding with a block or with the edge of the play space on his left side. If so he is moved flush
+			//with the boundary he is colliding with
 			if (man.position[0] >=0){
 				//we need to subtract 1 from the vertical position for the bottom corners, otherwise when the man is standing on a platform it's think he's hittng a wall too
 				//likewise, we need to add 1 to the vertical position for the top corners, so it doesn't detect horizontal collisions when a man hits his head on the ceiling
@@ -355,6 +409,8 @@ var startGame = function(){
 				man.position[0] = 0;
 			}
 			
+			//This if statement determines if a man is colliding with a block or with the edge of the play space on his right side. If so he is moved flush
+			//with the boundary he is colliding with
 			if (man.position[0] + man.width <= 50*envBlocks.blockLayout[0].length){
 				if (man.position[1] + 1>= 0){
 					var hTopRightBlock = envBlocks.blockLayout[Math.floor((man.position[1] + 1) / 50)]
@@ -371,7 +427,9 @@ var startGame = function(){
 				man.position[0] = 50*envBlocks.blockLayout[0].length - man.width;
 			}			
 			
+			//Next update the man's vertical position using his vertical velocity
 			man.position[1] += man.velocity[1];
+			//To simulate gravity, add a small amount to the vertical velocity with each frame
 			man.velocity[1] += 1.5;
 			if (man.position[1] + man.height >=0){
 				//see if there's a block present at the bottom left corner of the man
@@ -380,6 +438,7 @@ var startGame = function(){
 				//see if there's a block present at the bottom right corner of the man
 				var botRightBlock = envBlocks.blockLayout[Math.floor((man.position[1]+man.height) / 50)]
 											  [Math.floor((man.position[0]+man.width) / 50)];
+				//if a block is present in either bottom corner, shift the man up on top of the block he's colliding with
 				if (man.velocity[1] >= 0 && (botLeftBlock || botRightBlock)){
 					man.position[1] = Math.floor((man.position[1]+man.height) / 50) * 50 - man.height;
 					man.velocity[1] = 0;
@@ -395,12 +454,13 @@ var startGame = function(){
 				//see if there's a block present at the top right corner of the man
 				var topRightBlock = envBlocks.blockLayout[Math.floor((man.position[1]) / 50)]
 											  [Math.floor((man.position[0]+man.width) / 50)];
-				
+				//if a block is present in either top corner, shift the man to directly blow the block he's colliding with
 				if ((man.velocity[1] < 0) && topLeftBlock || topRightBlock){
 					man.position[1] = (Math.floor((man.position[1]) / 50)+1) * 50;
 					man.velocity[1] = 0;			
 				}
 			}
+			//count down the speech bubble timer
 			if (man.hasSpeechBubble){
 				man.speechBubbleCounter--;
 				if (man.speechBubbleCounter <= 0){
@@ -408,9 +468,12 @@ var startGame = function(){
 				}
 			}
 		}
+		//This is the animation to display when the man is running
 		man.runAnimation = new Animation(imgManRun, 16, 1);
+		//This is the animation to display when the man is standing still
 		man.standAnimation = new Animation(imgManStand, 8, 2);
 		man.draw = function(){			
+			//if the man is in the air, draw the "jumping" image (flipped horizontally if the man was last facing to the left)
 			if (man.inAir){
 				if (man.lastFacing > 0){
 					ctx.drawImage(imgManJump, man.position[0], man.position[1]);
@@ -420,11 +483,13 @@ var startGame = function(){
 					ctx.drawImage(imgManJump, -man.position[0]-man.width, man.position[1]);
 					ctx.restore();
 				}
+			//otherwise if the man is moving to the right, draw the running animation
 			}else if (man.velocity[0] > 0){
 				man.runAnimation.position[0] = man.position[0];
 				man.runAnimation.position[1] = man.position[1];
 				man.runAnimation.draw();
 				man.runAnimation.update();
+			//otherwise if the man is moving to the left, draw the running animation, flipped in the x-direction
 			}else if(man.velocity[0] < 0){
 				man.runAnimation.position[0] = -man.position[0] - man.width;
 				man.runAnimation.position[1] = man.position[1];				
@@ -433,16 +498,19 @@ var startGame = function(){
 				man.runAnimation.draw();
 				man.runAnimation.update();
 				ctx.restore();
+			//otherwise just draw the standing animation
 			}else{
 				man.standAnimation.position[0] = man.position[0];
 				man.standAnimation.position[1] = man.position[1];
 				man.standAnimation.draw();
 				man.standAnimation.update();
 			}
+			//If the man has a speech bubble currently then draw it
 			if (man.hasSpeechBubble){
 				man.drawSpeechBubble();
 			}
 		}
+		//This is a function used when a block is dropped to determine whether the man should be displaced by the block
 		man.isInBlock = function(row, column){
 			if ((column + 1)*50 >= man.position[0] && man.position[0] + man.width >= column * 50){
 				if ((row + 1) * 50 > man.position[1] && man.position[1] + man.height >= row * 50){
@@ -451,48 +519,61 @@ var startGame = function(){
 			}
 			return false;
 		}
+		//This is the function called when the man gets the command to jump
 		man.jump = function(){
 			man.velocity[1] = -18;
 		}
+		//This is the function called when the man gets the command to move to the right
 		man.moveRightStart = function(){
 			man.velocity[0] += 9;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
+		//This is the function called when the man gets the command to stop moving to the right (when the right arrow is released)
 		man.moveRightStop = function(){
 			man.velocity[0] -= 9;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
+		//This is the function called when the man gets the command to move to the left
 		man.moveLeftStart = function(){
 			man.velocity[0] += -9;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
+		//This is the function called when the man gets the command to stop moving to the left (when the left arrow is released)
 		man.moveLeftStop = function(){
 			man.velocity[0] += 9;
 			man.velocity[0] = Math.max(Math.min(man.velocity[0], 9), -9);
 		}
+		//When a user sends a message, this function adds a speech bubble to draw above their character for a limited time
 		man.addSpeechBubble = function(statement){
 			man.hasSpeechBubble = true;
+			//This is the number of frames that the speech bubble remains on the screen
 			man.speechBubbleCounter = 150;
 			ctx.font = "bold 20px sans-serif";
+			//If the statement is able to fit in a speech bubble on one line, then the statement array has a single element containing that statement
 			if (ctx.measureText(statement).width <= 230){
 				man.sBWidth = ctx.measureText(statement).width + 20;
 				man.sBHeight = 50;
 				man.statement = new Array(0);
 				man.statement[0] = statement;
-			}else{
+			//Otherwise, the statement needs to be split into multiple elements, representing multiple lines that will fit in the maximum speech
+			//bubble width.
+			}else{			
 				man.sBWidth = 250;
 				man.statement = new Array(0);
+				//Split the statement apart word by word
 				var splitStatement = statement.split(" ");
 				var currentRow = 0;
 				var currentWidth = 0;
 				var spaceWidth = ctx.measureText(" ").width;
-				console.log("Space Width: " + spaceWidth);
 				for (var i = 0; i < splitStatement.length; i++){
+					//for the first word of a new line (currentWidth == 0), simply add the word to the line if it fits
+					//otherwise, hyphenate the word
 					if (currentWidth == 0){
 						man.statement[currentRow] = "";
 						if (ctx.measureText(splitStatement[i]).width < 230){
 							man.statement[currentRow] += splitStatement[i];
 							currentWidth += ctx.measureText(splitStatement[i]).width;
+						//This is the code that hyphenates the word
 						}else{
 							for (var j = 1; j <= splitStatement[i].length; j++){
 								if (ctx.measureText(splitStatement[i].slice(0, -j)+"-").width < 230){
@@ -505,6 +586,8 @@ var startGame = function(){
 								}
 							}
 						}
+					//for words that are not the first word, if it doesn't fit in the remaining space for that line, then start a new line.
+					//Otherwise the word is added to the current line.
 					}else{
 						if (currentWidth + spaceWidth + ctx.measureText(splitStatement[i]).width < 230){
 							man.statement[currentRow] += " "+splitStatement[i];
@@ -519,6 +602,7 @@ var startGame = function(){
 				man.sBHeight = 20 + 25*man.statement.length;				
 			}
 		}
+		//This function daws a speech bubble containing the most recent statement over the man's location
 		man.drawSpeechBubble = function(){
 			drawSpeechBubble(man.position[0], man.position[1], man.sBWidth, man.sBHeight);
 			ctx.fillStyle="#000000";
@@ -527,10 +611,12 @@ var startGame = function(){
 				ctx.fillText(man.statement[i], man.position[0] + 42, man.position[1] - man.sBHeight + 7 + 25*i);
 			}
 		}
+		//This function is used to either pick up or drop a block, depending on the man's inventory
 		man.blockManipulate = function(){
 			var blockRow = Math.floor((man.position[1]+man.height) / 50);
 			var blockColumn = Math.floor((man.position[0] + man.width / 2) / 50);
 			if (blockRow >= 0 && blockColumn >= 0){
+				//If the man's inventory is empty, then attempt to take a block
 				if (man.inventory == 0){
 					//These two if statements allow the player to grab a block from the left or the right if he is pushing against a wall
 					if (man.velocity[0] > 0){
@@ -544,6 +630,7 @@ var startGame = function(){
 							blockColumn = Math.floor((man.position[0] - 1)/50);
 						}
 					}
+					//right now only green blocks ('1') can be picked up
 					switch(envBlocks.blockLayout[blockRow][blockColumn]){
 						case 0:
 							break;
@@ -556,6 +643,7 @@ var startGame = function(){
 						case 2:
 							break;
 					}
+				//if the man has something in inventory, then attempt to drop it at the man's location
 				}else{
 					switch(man.inventory){
 						case 1:
@@ -565,6 +653,8 @@ var startGame = function(){
 									column: blockColumn,
 									type: 1
 								});
+							//if the man's current location already has a block, (i.e. if he's standing on anything) 
+							//attempt to place the block above that space in the grid
 							}else if (blockRow > 0 && envBlocks.blockLayout[blockRow - 1][blockColumn] == 0){
 								socket.emit('blockDropRequest', {
 									row: (blockRow - 1),
@@ -576,6 +666,7 @@ var startGame = function(){
 				}
 			}
 		}
+		//upon a notification of a successful pickup of a block from the server, add that block to the man's inventory
 		socket.on('Pickup', function(pickup){
 			man.inventory = pickup;
 			switch(pickup){
@@ -584,6 +675,7 @@ var startGame = function(){
 					break;
 			}
 		});
+		//uopn notification of a successful block drop from the server, remove the block from the man's inventory
 		socket.on('Drop', function(){
 			man.inventory = 0;
 			invctx.clearRect(0,0,75,75);			
@@ -592,10 +684,12 @@ var startGame = function(){
 		return man;
 	}
 	
+	//This creates the man controlled by the user and adds it to the game objects array
 	var userMan = new Man();
 	gameObjects.push(userMan);
 	
-	//This defines the blocks used to make up the environment
+	//This defines the blocks used to make up the environment. It starts as an empty field with a solid ground, but it's replaced
+	//by what the server has before gameCycle is actually called.
 	var envBlocks = {
 		blockLayout : [	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -609,6 +703,7 @@ var startGame = function(){
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 					[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]],
+		//This function draws all the blocks.
 		draw : function(){
 			for (var i = 0; i < envBlocks.blockLayout.length; i++){
 				for (var j = 0; j < envBlocks.blockLayout[i].length; j++){
@@ -627,10 +722,12 @@ var startGame = function(){
 		}
 	}
 	
+	//The chat interface object is used to display a pending message that the user is working on
 	var chatInterface = {
 		active : false,
 		displayString : "",
 		cursorCount: 0,
+		//This function draws the chat interface
 		draw : function(){
 			if (chatInterface.active){
 				ctx.font = "bold 20px sans-serif";
@@ -642,10 +739,12 @@ var startGame = function(){
 				if (Math.floor(chatInterface.cursorCount / 15) == 0){
 					ctx.fillText(chatInterface.displayString, 75, 575);
 				}else{
+					//The cursor is actually a vertical line that gets appended to the displayed string depending on the value of cursorCount
 					ctx.fillText(chatInterface.displayString + "|", 75, 575);
 				}
 			}
 		},
+		//this function updates the cursor count, which is used to control the blinking cursor
 		update : function(){
 			if (chatInterface.active){
 				chatInterface.cursorCount++;
@@ -656,6 +755,7 @@ var startGame = function(){
 		}
 	}
 	
+	//This function draws a speech bubble of the specified width and height at a specified location
 	var drawSpeechBubble = function(x, y, width, height){
 		width = Math.max(width, 50);
 		height = Math.max(height, 50);
@@ -674,6 +774,7 @@ var startGame = function(){
 		ctx.stroke();
 	}
 	
+	//This function performs the canvas transformations that are used to follow the user's character around the play space
 	var moveFrame = function(){
 		var xTranslate = Math.max(Math.min(-userMan.position[0] + 400, 0), 800 - envBlocks.blockLayout[0].length*50);
 		var yTranslate = Math.max(Math.min(-userMan.position[1] + 300, 0), 600 - envBlocks.blockLayout.length*50);
@@ -683,6 +784,7 @@ var startGame = function(){
 	
 }
 
+//This is the contructor for the animation object, which is used to break down sprite strips and display them as animations
 var Animation = function(image, numFrames, cyclesPerFrame){
 	if (!cyclesPerFrame){
 		cyclesPerFrame = 1;
@@ -691,12 +793,15 @@ var Animation = function(image, numFrames, cyclesPerFrame){
 	this.height = image.height;
 	this.position = [0,0];
 	this.currentFrame = 0;
+	//this function advances the frame every (cyclesPerFrame) game cycles
 	this.update = function(){
 		this.currentFrame++;
 		if (this.currentFrame >= (numFrames*cyclesPerFrame)){
 			this.currentFrame = 0;
 		}
 	}
+	//this function draws the current frame at the animation's current position
+	//Note that the animation has it's own position that needs to be updated to match the character or object it represents
 	this.draw = function(){
 		ctx.drawImage(	image, 
 					Math.floor(image.width / numFrames * Math.floor(this.currentFrame/cyclesPerFrame)),
