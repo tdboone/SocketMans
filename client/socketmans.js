@@ -40,6 +40,15 @@ var imgManStand = addImage('ManStand1.png');
 var imgManJump = addImage('ManJump1.png');
 var imgGreenBlock = addImage('GreenBlock.png');
 var imgBlackBlock = addImage('BlackBlock.png');
+var imgRedBlock = addImage('RedBlock.png');
+var imgBlueBlock = addImage('BlueBlock.png');
+var imgBrownBlock = addImage('BrownBlock.png');
+var imgOrangeBlock = addImage('OrangeBlock.png');
+var imgPinkBlock = addImage('PinkBlock.png');
+var imgPurpleBlock = addImage('PurpleBlock.png');
+var imgTealBlock = addImage('TealBlock.png');
+var imgWhiteBlock = addImage('WhiteBlock.png');
+var imgYellowBlock = addImage('YellowBlock.png');
 
 var startGame = function(){
 	
@@ -630,38 +639,31 @@ var startGame = function(){
 							blockColumn = Math.floor((man.position[0] - 1)/50);
 						}
 					}
-					//right now only green blocks ('1') can be picked up
-					switch(envBlocks.blockLayout[blockRow][blockColumn]){
-						case 0:
-							break;
-						case 1:
+					if(envBlocks.blockLayout[blockRow][blockColumn]!=0){
+						//immovable black blocks are number one. All other greater number are for blocks that can be moved
+						if (envBlocks.blockLayout[blockRow][blockColumn] > 1){
 							socket.emit('blockTakeRequest', {
 								row: blockRow,
 								column: blockColumn
 							});
-							break;
-						case 2:
-							break;
+						}
 					}
 				//if the man has something in inventory, then attempt to drop it at the man's location
-				}else{
-					switch(man.inventory){
-						case 1:
-							if (envBlocks.blockLayout[blockRow][blockColumn] == 0){
-								socket.emit('blockDropRequest', {
-									row: blockRow,
-									column: blockColumn,
-									type: 1
-								});
-							//if the man's current location already has a block, (i.e. if he's standing on anything) 
-							//attempt to place the block above that space in the grid
-							}else if (blockRow > 0 && envBlocks.blockLayout[blockRow - 1][blockColumn] == 0){
-								socket.emit('blockDropRequest', {
-									row: (blockRow - 1),
-									column: blockColumn,
-									type: 1
-								});
-							}
+				}else if (man.inventory > 1){					
+					if (envBlocks.blockLayout[blockRow][blockColumn] == 0){
+						socket.emit('blockDropRequest', {
+							row: blockRow,
+							column: blockColumn,
+							type: man.inventory
+						});
+					//if the man's current location already has a block, (i.e. if he's standing on anything) 
+					//attempt to place the block above that space in the grid
+					}else if (blockRow > 0 && envBlocks.blockLayout[blockRow - 1][blockColumn] == 0){
+						socket.emit('blockDropRequest', {
+							row: (blockRow - 1),
+							column: blockColumn,
+							type: man.inventory
+						});
 					}
 				}
 			}
@@ -670,8 +672,35 @@ var startGame = function(){
 		socket.on('Pickup', function(pickup){
 			man.inventory = pickup;
 			switch(pickup){
-				case 1:
+				case 2:
+					invctx.drawImage(imgWhiteBlock, 12.5, 12.5);
+					break;
+				case 3:
+					invctx.drawImage(imgPinkBlock, 12.5, 12.5);
+					break;
+				case 4:
+					invctx.drawImage(imgRedBlock, 12.5, 12.5);
+					break;
+				case 5:
+					invctx.drawImage(imgPurpleBlock, 12.5, 12.5);
+					break;
+				case 6:
+					invctx.drawImage(imgBlueBlock, 12.5, 12.5);
+					break;
+				case 7:
+					invctx.drawImage(imgTealBlock, 12.5, 12.5);
+					break;
+				case 8:
 					invctx.drawImage(imgGreenBlock, 12.5, 12.5);
+					break;
+				case 9:
+					invctx.drawImage(imgYellowBlock, 12.5, 12.5);
+					break;
+				case 10:
+					invctx.drawImage(imgOrangeBlock, 12.5, 12.5);
+					break;
+				case 11:
+					invctx.drawImage(imgBrownBlock, 12.5, 12.5);
 					break;
 			}
 		});
@@ -710,11 +739,38 @@ var startGame = function(){
 					if (envBlocks.blockLayout[i][j]){
 						switch(envBlocks.blockLayout[i][j]){
 						case 1:
-							ctx.drawImage(imgGreenBlock, 50*j, 50*i);
-							break;
-						case 2:
 							ctx.drawImage(imgBlackBlock, 50*j, 50*i);
 							break;
+						case 2:
+							ctx.drawImage(imgWhiteBlock, 50*j, 50*i);
+							break;
+						case 3:
+							ctx.drawImage(imgPinkBlock, 50*j, 50*i);
+							break;
+						case 4:
+							ctx.drawImage(imgRedBlock, 50*j, 50*i);
+							break;
+						case 5:
+							ctx.drawImage(imgPurpleBlock, 50*j, 50*i);
+							break;
+						case 6:
+							ctx.drawImage(imgBlueBlock, 50*j, 50*i);
+							break;
+						case 7:
+							ctx.drawImage(imgTealBlock, 50*j, 50*i);
+							break;
+						case 8:
+							ctx.drawImage(imgGreenBlock, 50*j, 50*i);
+							break;
+						case 9:
+							ctx.drawImage(imgYellowBlock, 50*j, 50*i);
+							break;
+						case 10:
+							ctx.drawImage(imgOrangeBlock, 50*j, 50*i);
+							break;
+						case 11:
+							ctx.drawImage(imgBrownBlock, 50*j, 50*i);
+							break;						
 						}
 					}
 				}

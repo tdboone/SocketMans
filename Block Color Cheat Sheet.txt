@@ -1,0 +1,12 @@
+Blank - 0
+Black - 1
+White - 2
+Pink - 3
+Red - 4
+Purple - 5
+Blue - 6
+Teal - 7
+Green - 8
+Yellow - 9
+Orange - 10
+Brown - 11
