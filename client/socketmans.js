@@ -35,9 +35,12 @@ var addImage = function(srcName){ //This function is used to create an image, an
 }
 
 //These are the images to load for the game
-var imgManRun = addImage('ManRun2.png');
-var imgManStand = addImage('ManStand1.png');
-var imgManJump = addImage('ManJump1.png');
+var imgManRunOL = addImage('ManRunOL.png');
+var imgManRunMask = addImage('ManRunMask.png');
+var imgManStandOL = addImage('ManStandOL.png');
+var imgManStandMask = addImage('ManStandMask.png');
+var imgManJumpOL = addImage('ManJumpOL.png');
+var imgManJumpMask = addImage('ManJumpMask.png');
 var imgGreenBlock = addImage('GreenBlock.png');
 var imgBlackBlock = addImage('BlackBlock.png');
 var imgRedBlock = addImage('RedBlock.png');
@@ -93,19 +96,15 @@ var startGame = function(){
 						    //so this prevents the man from re-centering unnecessarily if he's partially standing
 						    //on another block when dropping his block
 		if (userMan.isInBlock(data.row, data.column)){
-			console.log("Player must be moved from "+data.row+", "+data.column+".");
 			//If the space above the block being dropped is open, just move the player there.
 			if (envBlocks.blockLayout[data.row - 1][data.column] == 0){
 				userMan.position = [ data.column*50 + (50 - userMan.width) / 2,(data.row - 1) * 50 + (50 - userMan.height) / 2 ];
-				console.log("Player was moved to "+(data.row - 1)+", "+data.column+".");
 			//Otherwise, if the space to the left of the block being dropped is open, move the player there.
 			}else if (envBlocks.blockLayout[data.row][data.column - 1] == 0){
 				userMan.position = [ (data.column - 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
-				console.log("Player was moved to "+data.row+", "+(data.column - 1)+".");
 			//Otherwise, if the space to the right of the block being dropped is open, move the player there.
 			}else if (envBlocks.blockLayout[data.row][data.column + 1] == 0){
 				userMan.position = [ (data.column + 1)*50 + (50 - userMan.width) / 2,data.row * 50 + (50 - userMan.height) / 2 ];
-				console.log("Player was moved to "+data.row+", "+(data.column + 1)+".");
 			}
 			//Since the client only displaces it's own character, emit an update to let other clients know where you ended up.
 			emitUpdate();
@@ -214,7 +213,7 @@ var startGame = function(){
 		//Draw the blocks that make up the environment
 		if (envBlocks){
 			envBlocks.draw();
-		}
+		}		
 		//Draw all game objects (right now just the user's character)
 		for (var i = 0; i < gameObjects.length; i++)
 		{
@@ -226,7 +225,7 @@ var startGame = function(){
 			if (otherPlayers[i]){
 				otherPlayers[i].draw();
 			}
-		}		
+		}
 		ctx.restore();
 		//If the chat interface is in use then draw it
 		if (chatInterface){
@@ -387,6 +386,7 @@ var startGame = function(){
 		man.width = 34;
 		man.height = 49;
 		man.inventory = 0;
+		man.color = "rgb(149, 214, 246)"; //This is the color the man is drawn in. In the future, users will be able to select their colors
 		man.inAir = false; //Whether the man is currently in the air
 		man.lastFacing = 1; //The direction the man was last moving in (right = 1, left = -1)
 		man.update = function(){
@@ -478,30 +478,42 @@ var startGame = function(){
 			}
 		}
 		//This is the animation to display when the man is running
-		man.runAnimation = new Animation(imgManRun, 16, 1);
+		man.runAnimation = new MaskedAnimation(imgManRunOL, imgManRunMask, 16, 1, man.color);
 		//This is the animation to display when the man is standing still
-		man.standAnimation = new Animation(imgManStand, 8, 2);
+		man.standAnimation = new MaskedAnimation(imgManStandOL, imgManStandMask, 8, 2, man.color);
 		man.draw = function(){			
 			//if the man is in the air, draw the "jumping" image (flipped horizontally if the man was last facing to the left)
+			//In order to use a programmatically controlled fill color for the body, a solid rectangle with that color is drawn, then
+			//a mask is draw over it to leave only the colored-in body section, and then the outline is drawn on top of it.
 			if (man.inAir){
 				if (man.lastFacing > 0){
-					ctx.drawImage(imgManJump, man.position[0], man.position[1]);
+					ctx.fillStyle = man.color;
+					ctx.fillRect(man.position[0], man.position[1], 35, 50);
+					ctx.globalCompositeOperation = 'destination-out';
+					ctx.drawImage(imgManJumpMask, man.position[0], man.position[1]);
+					ctx.globalCompositeOperation = 'source-over';
+					ctx.drawImage(imgManJumpOL, man.position[0], man.position[1]);
 				}else{
 					ctx.save();
 					ctx.scale(-1, 1);
-					ctx.drawImage(imgManJump, -man.position[0]-man.width, man.position[1]);
+					ctx.fillStyle = man.color;
+					ctx.fillRect(-man.position[0]-man.width, man.position[1], 35, 50);
+					ctx.globalCompositeOperation = 'destination-out';
+					ctx.drawImage(imgManJumpMask, -man.position[0]-man.width, man.position[1]);
+					ctx.globalCompositeOperation = 'source-over';
+					ctx.drawImage(imgManJumpOL, -man.position[0]-man.width, man.position[1]);
 					ctx.restore();
 				}
 			//otherwise if the man is moving to the right, draw the running animation
 			}else if (man.velocity[0] > 0){
 				man.runAnimation.position[0] = man.position[0];
-				man.runAnimation.position[1] = man.position[1];
+				man.runAnimation.position[1] = man.position[1] -1;//subtract one pixel so the bottom of the feet show
 				man.runAnimation.draw();
 				man.runAnimation.update();
 			//otherwise if the man is moving to the left, draw the running animation, flipped in the x-direction
 			}else if(man.velocity[0] < 0){
 				man.runAnimation.position[0] = -man.position[0] - man.width;
-				man.runAnimation.position[1] = man.position[1];				
+				man.runAnimation.position[1] = man.position[1] - 1;//subtract one pixel so the bottom of the feet show			
 				ctx.save();
 				ctx.scale(-1, 1);
 				man.runAnimation.draw();
@@ -510,7 +522,7 @@ var startGame = function(){
 			//otherwise just draw the standing animation
 			}else{
 				man.standAnimation.position[0] = man.position[0];
-				man.standAnimation.position[1] = man.position[1];
+				man.standAnimation.position[1] = man.position[1] - 1;//subtract one pixel so the bottom of the feet show
 				man.standAnimation.draw();
 				man.standAnimation.update();
 			}
@@ -869,4 +881,38 @@ var Animation = function(image, numFrames, cyclesPerFrame){
 					this.width,
 					this.height);
 	}
+}
+
+//This is the constructor for the MaskedAnimation object, which inherits from the Animation object.
+//This is used to draw an animation using masks, so that parts of the image may have their colors programmatically controlled.
+var MaskedAnimation = function(overlayImage, maskImage, numFrames, cyclesPerFrame, color){
+	var base = new Animation(overlayImage, numFrames, cyclesPerFrame);
+	base.color = color;
+	//To draw the figure using a programmatically-controlled fill color, the masked animation first draws a solid box with that color, then
+	//applies a mask to leave only the desired colored-in section, and then draws the outline on top of it.
+	base.draw = function(){
+		ctx.fillStyle = base.color;
+		ctx.fillRect (base.position[0], base.position[1], base.width, base.height);
+		ctx.globalCompositeOperation = 'destination-out';
+		ctx.drawImage(	maskImage,
+					Math.floor(overlayImage.width / numFrames * Math.floor(base.currentFrame/cyclesPerFrame)),
+					0,
+					base.width,
+					base.height,
+					base.position[0],
+					base.position[1],
+					base.width,
+					base.height);
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.drawImage(	overlayImage,
+					Math.floor(overlayImage.width / numFrames * Math.floor(base.currentFrame/cyclesPerFrame)),
+					0,
+					base.width,
+					base.height,
+					base.position[0],
+					base.position[1],
+					base.width,
+					base.height);
+	}
+	return base;
 }
