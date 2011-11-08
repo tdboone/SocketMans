@@ -73,6 +73,16 @@ io.sockets.on('connection', function(socket){
 	}		
 	socket.emit('existing players', existingPlayers);
 	
+	//Send the user the current colors of each of the existing users
+	for (var i = 0; i < existingPlayers.length; i++){
+		if (players[existingPlayers[i]].color){
+			socket.emit('shareUserColor', {
+				playerIndex : existingPlayers[i],
+				color: players[existingPlayers[i]].color
+			});
+		}
+	}
+	
 	//This sends the joining player the array that keeps track of the blocks currently in the play space
 	socket.emit('environment load', blocks);
 	
@@ -85,11 +95,21 @@ io.sockets.on('connection', function(socket){
 		});
 	});
 	
+	//When a user emits their character's color, share that color with all other connected players and store it
+	//in that character's Player object in the server's players array to share with new connecting players
+	socket.on('emitUserColor', function(data){
+		players[socket.playerIndex].color = data.color;
+		socket.broadcast.emit('shareUserColor', {
+			playerIndex : socket.playerIndex,
+			color: data.color
+		});
+	});
+	
 	//When a client emits a message, that message is shared with all other players so that the message is displayed above the representation of their character
 	socket.on('sendMessage', function(messageToShare){
 		socket.broadcast.emit('shareMessage', {
 			playerIndex : socket.playerIndex,
-			message : messageToShare,			
+			message : messageToShare	
 		});
 	});
 	

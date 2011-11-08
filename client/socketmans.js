@@ -88,6 +88,22 @@ var startGame = function(){
 	socket.on('environment load', function(blocks){
 		envBlocks.blockLayout = blocks;
 		gameCycle();
+		emitCharacterColor();
+	});
+	
+	//Send the color of the current player to the server
+	function emitCharacterColor(){
+		socket.emit('emitUserColor', {
+			color: userMan.color
+		});
+	}
+	
+	//When the server shares a user's color, update that player's representation in the otherPlayers array
+	//to have that color as well.
+	socket.on('shareUserColor', function(data){
+		otherPlayers[data.playerIndex].color = data.color;
+		otherPlayers[data.playerIndex].runAnimation.color = data.color;
+		otherPlayers[data.playerIndex].standAnimation.color = data.color;		
 	});
 	
 	//This removes a block when any player has a successful remove block request go through the server
@@ -393,7 +409,7 @@ var startGame = function(){
 		man.width = 34;
 		man.height = 49;
 		man.inventory = 0;
-		man.color = [3, 1, 3];
+		man.color = [Math.floor(Math.random()*5.99), Math.floor(Math.random()*5.99), Math.floor(Math.random()*5.99)];
 		man.inAir = false; //Whether the man is currently in the air
 		man.lastFacing = 1; //The direction the man was last moving in (right = 1, left = -1)
 		man.update = function(){
@@ -850,8 +866,8 @@ var startGame = function(){
 		ctx.moveTo(x+35,y-height-20);  
 		ctx.lineTo(x+35,y-20);  
 		ctx.lineTo(x+60,y-20);  
-		ctx.quadraticCurveTo(x+60,y,x+40,y+5);  
-		ctx.quadraticCurveTo(x+70,y,x+75,y-20);  
+		ctx.lineTo(x+40,y+5);  
+		ctx.lineTo(x+75,y-20);  		
 		ctx.lineTo(x+35+width,y-20);  
 		ctx.lineTo(x+35+width,y-height-20);
 		ctx.lineTo(x+35,y-height-20);
@@ -920,7 +936,7 @@ var RGBAnimation = function(baseImage, redImage, greenImage, blueImage, numFrame
 					base.width,
 					base.height);
 		ctx.globalCompositeOperation = 'lighter';
-		for (var i = 0; i < color[0]; i++){
+		for (var i = 0; i < base.color[0]; i++){
 			ctx.drawImage(	redImage,
 						Math.floor(baseImage.width / numFrames * Math.floor(base.currentFrame/cyclesPerFrame)),
 						0,
@@ -931,7 +947,7 @@ var RGBAnimation = function(baseImage, redImage, greenImage, blueImage, numFrame
 						base.width,
 						base.height);
 		}
-		for (var i = 0; i < color[1]; i++){
+		for (var i = 0; i < base.color[1]; i++){
 			ctx.drawImage(	greenImage,
 						Math.floor(baseImage.width / numFrames * Math.floor(base.currentFrame/cyclesPerFrame)),
 						0,
@@ -942,7 +958,7 @@ var RGBAnimation = function(baseImage, redImage, greenImage, blueImage, numFrame
 						base.width,
 						base.height);
 		}
-		for (var i = 0; i < color[2]; i++){
+		for (var i = 0; i < base.color[2]; i++){
 			ctx.drawImage(	blueImage,
 						Math.floor(baseImage.width / numFrames * Math.floor(base.currentFrame/cyclesPerFrame)),
 						0,
