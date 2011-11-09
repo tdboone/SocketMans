@@ -89,6 +89,7 @@ var startGame = function(){
 		envBlocks.blockLayout = blocks;
 		gameCycle();
 		emitCharacterColor();
+		emitCharacterName();
 	});
 	
 	//Send the color of the current player to the server
@@ -105,6 +106,72 @@ var startGame = function(){
 		otherPlayers[data.playerIndex].runAnimation.color = data.color;
 		otherPlayers[data.playerIndex].standAnimation.color = data.color;		
 	});
+	
+	//Send the name of the current player to the server
+	function emitCharacterName(){
+		socket.emit('emitUserName', {
+			name: userMan.name
+		});
+	}
+	
+	//When the server shares a user's name, update that player's representation in the otherPlayers array
+	//to have that name as well.
+	socket.on('shareUserName', function(data){
+		otherPlayers[data.playerIndex].name = data.name;	
+	});
+	
+	//This function is used to randomly create a name using lists of first and last names
+	function getRandomName(){
+		var a = Math.floor(Math.random() * 19.99);
+		var name = "";
+		switch (a){
+			case 0:	name += "Jimmy";	break;
+			case 1:	name += "Ronnie";	break;
+			case 2:	name += "Sammy";	break;
+			case 3:	name += "Janice";	break;
+			case 4:	name += "Turanga";	break;
+			case 5:	name += "Sally";		break;
+			case 6:	name += "Timmy";	break;
+			case 7:	name += "Don";		break;
+			case 8:	name += "James";	break;
+			case 9:	name += "Tom";		break;
+			case 10:	name += "Merlin";	break;
+			case 11:	name += "Mr.";		break;
+			case 12:	name += "Big Fat Mr.";	break;
+			case 13:	name += "Ms.";		break;
+			case 14:	name += "Chris";		break;
+			case 15:	name += "Cecelia";	break;
+			case 16:	name += "Sophie";	break;
+			case 17:	name += "Horace";	break;
+			case 18:	name += "Christine";	break;
+			case 19:	name += "Sue";		break;
+		}
+		a = Math.floor(Math.random() * 19.99);
+		name += " ";
+		switch (a){
+			case 0:	name += "Page";		break;
+			case 1:	name += "Hendrix";	break;
+			case 2:	name += "James Dio";	break;
+			case 3:	name += "Turdlinger";	break;
+			case 4:	name += "Smith";	break;
+			case 5:	name += "Brown";	break;
+			case 6:	name += "Soprano";	break;
+			case 7:	name += "Washington";break;
+			case 8:	name += "James";	break;
+			case 9:	name += "Stevens";	break;
+			case 10:	name += "Clinton";	break;
+			case 11:	name += "Valmer";	break;
+			case 12:	name += "Marsh";	break;
+			case 13:	name += "Garrison";	break;
+			case 14:	name += "Frye";		break;
+			case 15:	name += "Wong";	break;
+			case 16:	name += "Rodriguez";	break;
+			case 17:	name += "Buchek";	break;
+			case 18:	name += "Fartz Jr.";	break;
+			case 19:	name += "Brovloski";	break;
+		}
+		return name;
+	}
 	
 	//This removes a block when any player has a successful remove block request go through the server
 	socket.on('removeBlock', function(data){
@@ -410,6 +477,7 @@ var startGame = function(){
 		man.height = 49;
 		man.inventory = 0;
 		man.color = [Math.floor(Math.random()*5.99), Math.floor(Math.random()*5.99), Math.floor(Math.random()*5.99)];
+		man.name = getRandomName();
 		man.inAir = false; //Whether the man is currently in the air
 		man.lastFacing = 1; //The direction the man was last moving in (right = 1, left = -1)
 		man.update = function(){
@@ -539,6 +607,8 @@ var startGame = function(){
 					ctx.globalCompositeOperation = 'source-over';
 					ctx.restore();
 				}
+				
+				
 			//otherwise if the man is moving to the right, draw the running animation
 			}else if (man.velocity[0] > 0){
 				man.runAnimation.position[0] = man.position[0];
@@ -561,6 +631,10 @@ var startGame = function(){
 				man.standAnimation.draw();
 				man.standAnimation.update();
 			}
+			//Display the character's name
+			ctx.font = "bold 10px sans-serif";
+			ctx.fillStyle = "#000000";
+			ctx.fillText(man.name, man.position[0] - (ctx.measureText(man.name).width-man.width)/2, man.position[1] - 8);
 			//If the man has a speech bubble currently then draw it
 			if (man.hasSpeechBubble){
 				man.drawSpeechBubble();

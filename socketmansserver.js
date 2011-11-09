@@ -73,12 +73,18 @@ io.sockets.on('connection', function(socket){
 	}		
 	socket.emit('existing players', existingPlayers);
 	
-	//Send the user the current colors of each of the existing users
+	//Send the user the current colors and names of each of the existing users
 	for (var i = 0; i < existingPlayers.length; i++){
 		if (players[existingPlayers[i]].color){
 			socket.emit('shareUserColor', {
 				playerIndex : existingPlayers[i],
 				color: players[existingPlayers[i]].color
+			});
+		}
+		if (players[existingPlayers[i]].name){
+			socket.emit('shareUserName', {
+				playerIndex : existingPlayers[i],
+				name: players[existingPlayers[i]].name
 			});
 		}
 	}
@@ -102,6 +108,16 @@ io.sockets.on('connection', function(socket){
 		socket.broadcast.emit('shareUserColor', {
 			playerIndex : socket.playerIndex,
 			color: data.color
+		});
+	});
+	
+	//When a user emits their character's name, share that name with all other connected players and store it
+	//in that character's Player object in the server's players array to share with new connecting players
+	socket.on('emitUserName', function(data){
+		players[socket.playerIndex].name = data.name;
+		socket.broadcast.emit('shareUserName', {
+			playerIndex : socket.playerIndex,
+			name: data.name
 		});
 	});
 	
