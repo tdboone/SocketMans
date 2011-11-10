@@ -59,6 +59,18 @@ var imgTealBlock = addImage('TealBlock.png');
 var imgWhiteBlock = addImage('WhiteBlock.png');
 var imgYellowBlock = addImage('YellowBlock.png');
 
+//This is an object that allows access to the userMan object for things outside of the game cycle, such as the character settings dialog.
+var CharacterAttributes = function(){
+	this.character = {};
+	this.getColor = function(){
+		return this.character.color;
+	}
+	this.getName = function(){
+		return this.character.name;
+	}
+}
+characterAttributes = new CharacterAttributes();
+
 var startGame = function(){
 	
 	//Right now the game objects array is just used to hold the user's character, but if other different objects
@@ -291,6 +303,9 @@ var startGame = function(){
 		if (chatInterface){
 			chatInterface.update();
 		}
+		if (characterSettings){
+			characterSettings.update();
+		}
 	}
 	
 	//This function clears the canvas and draws the current frame.
@@ -321,134 +336,141 @@ var startGame = function(){
 		if (chatInterface){
 			chatInterface.draw();
 		}
+		if (characterSettings){
+			characterSettings.draw();
+		}
 	}
 	
 	//This and the onkeyup functions are where you implement the controls.
 	window.onkeydown = function(event){		
 		
-		if (event.keyCode){
-			//This if statment contains all the keystrokes picked up by the chat interface
-			if (chatInterface.active){
-				//This is where all the letters are assigned their keystrokes
-				if ( event.keyCode >= 65 && event.keyCode <= 90){
-					event.preventDefault();
-					chatInterface.cursorCount = 15;
-					if (event.shiftKey){
-						chatInterface.displayString += String.fromCharCode(event.keyCode);
-					}else{
-						chatInterface.displayString += String.fromCharCode(event.keyCode + 32);
-					}
-				//This handles the backspace key
-				}else if (event.keyCode == 8){
-					event.preventDefault();
-					chatInterface.cursorCount = 15;
-					chatInterface.displayString = chatInterface.displayString.slice(0, chatInterface.displayString.length - 1);
-				//This handles the enter key, which sends the message if there's one there, and removes the chat interface display
-				}else if (event.keyCode == 13){
-					chatInterface.active = false;
-					if (chatInterface.displayString){
-						socket.emit('sendMessage', chatInterface.displayString);
-						userMan.addSpeechBubble(chatInterface.displayString);
-						chatInterface.displayString = "";
-					}
-				//This handles numbers and special characters by using the charMap function to assign them to their keycodes
-				}else{
-					var charMap = function(code, lower, upper){
-						if (event.keyCode == code){
-							if (event.shiftKey && upper){
-								chatInterface.displayString += upper;
-							}else{
-								chatInterface.displayString += lower;
-							}
-							chatInterface.cursorCount = 15;
-							event.preventDefault();
+		if (!characterSettings.isDialogOpen()){
+			if (event.keyCode){
+				//This if statment contains all the keystrokes picked up by the chat interface
+				if (chatInterface.active){
+					//This is where all the letters are assigned their keystrokes
+					if ( event.keyCode >= 65 && event.keyCode <= 90){
+						event.preventDefault();
+						chatInterface.cursorCount = 15;
+						if (event.shiftKey){
+							chatInterface.displayString += String.fromCharCode(event.keyCode);
+						}else{
+							chatInterface.displayString += String.fromCharCode(event.keyCode + 32);
 						}
+					//This handles the backspace key
+					}else if (event.keyCode == 8){
+						event.preventDefault();
+						chatInterface.cursorCount = 15;
+						chatInterface.displayString = chatInterface.displayString.slice(0, chatInterface.displayString.length - 1);
+					//This handles the enter key, which sends the message if there's one there, and removes the chat interface display
+					}else if (event.keyCode == 13){
+						chatInterface.active = false;
+						if (chatInterface.displayString){
+							socket.emit('sendMessage', chatInterface.displayString);
+							userMan.addSpeechBubble(chatInterface.displayString);
+							chatInterface.displayString = "";
+						}
+					//This handles numbers and special characters by using the charMap function to assign them to their keycodes
+					}else{
+						var charMap = function(code, lower, upper){
+							if (event.keyCode == code){
+								if (event.shiftKey && upper){
+									chatInterface.displayString += upper;
+								}else{
+									chatInterface.displayString += lower;
+								}
+								chatInterface.cursorCount = 15;
+								event.preventDefault();
+							}
+						}
+						charMap(32, " ");
+						//Top row number keys:
+						charMap(48, "0", ")");
+						charMap(49, "1", "!");
+						charMap(50, "2", "@");
+						charMap(51, "3", "#");
+						charMap(52, "4", "$");
+						charMap(53, "5", "%");
+						charMap(54, "6", "^");
+						charMap(55, "7", "&");
+						charMap(56, "8", "*");
+						charMap(57, "9", "(");
+						//Number pad keys:
+						charMap(96, "0");
+						charMap(97, "1");
+						charMap(98, "2");
+						charMap(99, "3");
+						charMap(100, "4");
+						charMap(101, "5");
+						charMap(102, "6");
+						charMap(103, "7");
+						charMap(104, "8");
+						charMap(105, "9");
+						charMap(106, "*");
+						charMap(107, "+");
+						charMap(109, "-");
+						charMap(110, ".");
+						charMap(111, "/");
+						//Punctuation keys:
+						charMap(186, ";", ":");
+						charMap(187, "=", "+");
+						charMap(188, ",", "<");
+						charMap(189, "-", "_");
+						charMap(190, ".", ">");
+						charMap(191, "/", "?");
+						charMap(222, "\'", "\"");
 					}
-					charMap(32, " ");
-					//Top row number keys:
-					charMap(48, "0", ")");
-					charMap(49, "1", "!");
-					charMap(50, "2", "@");
-					charMap(51, "3", "#");
-					charMap(52, "4", "$");
-					charMap(53, "5", "%");
-					charMap(54, "6", "^");
-					charMap(55, "7", "&");
-					charMap(56, "8", "*");
-					charMap(57, "9", "(");
-					//Number pad keys:
-					charMap(96, "0");
-					charMap(97, "1");
-					charMap(98, "2");
-					charMap(99, "3");
-					charMap(100, "4");
-					charMap(101, "5");
-					charMap(102, "6");
-					charMap(103, "7");
-					charMap(104, "8");
-					charMap(105, "9");
-					charMap(106, "*");
-					charMap(107, "+");
-					charMap(109, "-");
-					charMap(110, ".");
-					charMap(111, "/");
-					//Punctuation keys:
-					charMap(186, ";", ":");
-					charMap(187, "=", "+");
-					charMap(188, ",", "<");
-					charMap(189, "-", "_");
-					charMap(190, ".", ">");
-					charMap(191, "/", "?");
-					charMap(222, "\'", "\"");
-				}
-			}else{	
-				//If the chat interface is not active, this picks up the other keystrokes
-				switch(event.keyCode)
-				{
-					//Press enter to bring up the chat interface
-					case 13:
-						chatInterface.active = true;
-						event.preventDefault();
-						break;
-					//Space bar is used for block manipulation
-					case 32:
-						userMan.blockManipulate();
-						event.preventDefault();
-						break;
-					//Left, right and up arrows are used for running and jumping
-					case 37:
-						userMan.moveLeftStart();
-						emitUpdate();
-						event.preventDefault();
-						break;
-					case 38:
-						userMan.jump();
-						emitUpdate();
-						event.preventDefault();
-						break;
-					case 39:
-						userMan.moveRightStart();
-						emitUpdate();
-						event.preventDefault();
-						break;
+				}else{	
+					//If the chat interface is not active, this picks up the other keystrokes
+					switch(event.keyCode)
+					{
+						//Press enter to bring up the chat interface
+						case 13:
+							chatInterface.active = true;
+							event.preventDefault();
+							break;
+						//Space bar is used for block manipulation
+						case 32:
+							userMan.blockManipulate();
+							event.preventDefault();
+							break;
+						//Left, right and up arrows are used for running and jumping
+						case 37:
+							userMan.moveLeftStart();
+							emitUpdate();
+							event.preventDefault();
+							break;
+						case 38:
+							userMan.jump();
+							emitUpdate();
+							event.preventDefault();
+							break;
+						case 39:
+							userMan.moveRightStart();
+							emitUpdate();
+							event.preventDefault();
+							break;
+					}
 				}
 			}
 		}
 	}
 	
 	window.onkeyup = function(event){
-		if (event.keyCode){
-			switch(event.keyCode)
-			{
-				//The character stops moving to the left or to the right when the left or right arrow is released.
-				case 37:
-					userMan.moveLeftStop();
-					emitUpdate();
-					break;
-				case 39:
-					userMan.moveRightStop();
-					emitUpdate();
-					break;
+		if (!characterSettings.isDialogOpen()){
+			if (event.keyCode){
+				switch(event.keyCode)
+				{
+					//The character stops moving to the left or to the right when the left or right arrow is released.
+					case 37:
+						userMan.moveLeftStop();
+						emitUpdate();
+						break;
+					case 39:
+						userMan.moveRightStop();
+						emitUpdate();
+						break;
+				}
 			}
 		}
 	}
@@ -838,6 +860,8 @@ var startGame = function(){
 	var userMan = new Man();
 	gameObjects.push(userMan);
 	
+	characterAttributes.character = userMan;
+	
 	//This defines the blocks used to make up the environment. It starts as an empty field with a solid ground, but it's replaced
 	//by what the server has before gameCycle is actually called.
 	var envBlocks = {
@@ -1047,3 +1071,96 @@ var RGBAnimation = function(baseImage, redImage, greenImage, blueImage, numFrame
 	}
 	return base;
 }
+
+//This creates a button that, when clicked, opens a dialog that allows the user to change their user name.	
+var CharacterSettings = function(){
+	var dialogOpen = false;
+	var characterAnimation = {};
+	var characterName = "";
+	//draw the Character Settings Button
+	this.draw = function(){
+		ctx.fillStyle = "#ffffff";
+		ctx.strokeStyle = "#000000";
+		ctx.fillRect (675, 10, 100, 25);
+		ctx.strokeRect (675, 10, 100, 25);
+		ctx.font = "bold 10px sans-serif";
+		ctx.fillStyle = "#000000";
+		ctx.fillText("Character Settings", 680, 26);
+
+		if (dialogOpen){
+			ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+			ctx.fillRect(0, 0, 800, 600);
+			ctx.fillStyle = "#ffffff";
+			ctx.strokeStyle = "#000000";
+			ctx.fillRect (50, 50, 700, 500);
+			ctx.strokeRect (50, 50, 700, 500);
+			ctx.font = "bold 24px sans-serif";
+			ctx.fillStyle = "#000000";
+			ctx.fillText("Character Settings", 400 - ctx.measureText("Character Settings").width/2, 80);
+			characterAnimation.position = [100, 150];
+			characterAnimation.draw();
+			ctx.font = "bold 10px sans-serif";
+			ctx.fillStyle = "#000000";
+			ctx.fillText(characterName, 100 - (ctx.measureText(characterName).width-35)/2, 150 - 8);
+		}
+	}
+	
+	this.update = function(){
+		if (dialogOpen){
+			characterAnimation.update();
+		}
+	}
+	
+	//Helper function used to determine the position of the canvas within the document
+	var findPos = function(obj) {
+		var curleft = curtop = 0;
+		if (obj.offsetParent) {
+			do {
+				curleft += obj.offsetLeft;
+				curtop += obj.offsetTop;
+			} while (obj = obj.offsetParent);
+		}
+		return [curleft,curtop];
+	}
+	
+	//This is a click listener that determines whether the user has clicked on the character settings button, 
+	//and if so, it opens the character settings dialog.
+	var openDialog = function(e){
+		if (!dialogOpen){
+			var posx = 0;
+			var posy = 0;
+			if (!e) var e = window.event;
+			if (e.pageX || e.pageY) 	{
+				posx = e.pageX;
+				posy = e.pageY;
+			}
+			else if (e.clientX || e.clientY) 	{
+				posx = e.clientX + document.body.scrollLeft
+					+ document.documentElement.scrollLeft;
+				posy = e.clientY + document.body.scrollTop
+					+ document.documentElement.scrollTop;
+			}
+			// posx and posy contain the mouse position relative to the document
+			// Do something with this information
+			posx -= findPos(canvas)[0] + 3;
+			posy -= findPos(canvas)[1] + 3;
+			
+			if (	posx > 675 && posx < 775 && posy > 10 && posy < 35){
+				dialogOpen = true;
+				characterAnimation = new RGBAnimation(imgManRunBl, imgManRunR, imgManRunG, imgManRunB, 16, 1, characterAttributes.getColor());
+				characterName = characterAttributes.getName();
+			}
+		}else{
+			dialogOpen = false;
+		}
+	}
+	document.addEventListener('click', openDialog, false);
+	
+	this.isDialogOpen = function(){
+		return dialogOpen;
+	}
+}
+
+
+
+var characterSettings = new CharacterSettings();
