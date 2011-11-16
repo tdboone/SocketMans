@@ -453,6 +453,8 @@ var startGame = function(){
 					}
 				}
 			}
+		}else{
+			characterSettings.handleInput(event);
 		}
 	}
 	
@@ -1076,7 +1078,9 @@ var RGBAnimation = function(baseImage, redImage, greenImage, blueImage, numFrame
 var CharacterSettings = function(){
 	var dialogOpen = false;
 	var characterAnimation = {};
-	var characterName = "";
+	var characterName = ""; 
+	var cursorCounter = 0;
+	var cursorCount = 30;
 	//draw the Character Settings Button
 	this.draw = function(){
 		ctx.fillStyle = "#ffffff";
@@ -1088,26 +1092,97 @@ var CharacterSettings = function(){
 		ctx.fillText("Character Settings", 680, 26);
 
 		if (dialogOpen){
+			//gray-out the play screen
 			ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
 			ctx.fillRect(0, 0, 800, 600);
 			ctx.fillStyle = "#ffffff";
 			ctx.strokeStyle = "#000000";
+			//overlay the settings screen box
 			ctx.fillRect (50, 50, 700, 500);
 			ctx.strokeRect (50, 50, 700, 500);
 			ctx.font = "bold 24px sans-serif";
 			ctx.fillStyle = "#000000";
+			//Write the title
 			ctx.fillText("Character Settings", 400 - ctx.measureText("Character Settings").width/2, 80);
+			//Draw a representation of the character
 			characterAnimation.position = [100, 150];
 			characterAnimation.draw();
 			ctx.font = "bold 10px sans-serif";
 			ctx.fillStyle = "#000000";
 			ctx.fillText(characterName, 100 - (ctx.measureText(characterName).width-35)/2, 150 - 8);
+			//Draw the name-typing box
+			ctx.font = "bold 16px sans-serif";
+			ctx.fillText(characterName + (Math.floor(cursorCounter/15) ? "|" : ""), 250, 200);
+			ctx.strokeRect (240, 174, 400, 36);
+			//Draw the color controls
+			//RED:
+			ctx.fillRect(255, 265, 5, 120);
+			ctx.fillStyle = "#ff0000";
+			ctx.fillRect(235, 375 - 24*characterAnimation.color[0], 45, 20);
+			ctx.strokeRect(235, 375 - 24*characterAnimation.color[0], 45, 20);
+			
+			ctx.strokeRect(235, 410, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(238, 427);
+			ctx.lineTo(257.5, 413);
+			ctx.lineTo(277, 427);
+			ctx.stroke();
+			ctx.strokeRect(235, 435, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(238, 438);
+			ctx.lineTo(257.5, 452);
+			ctx.lineTo(277, 438);
+			ctx.stroke();
+			
+			//GREEN:
+			ctx.fillStyle="#000000";
+			ctx.fillRect(315, 265, 5, 120);
+			ctx.fillStyle = "#00ff00";
+			ctx.fillRect(295, 375 - 24*characterAnimation.color[1], 45, 20);
+			ctx.strokeRect(295, 375 - 24*characterAnimation.color[1], 45, 20);
+			
+			ctx.strokeRect(295, 410, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(298, 427);
+			ctx.lineTo(317.5, 413);
+			ctx.lineTo(337, 427);
+			ctx.stroke();
+			ctx.strokeRect(295, 435, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(298, 438);
+			ctx.lineTo(317.5, 452);
+			ctx.lineTo(337, 438);
+			ctx.stroke();
+			
+			//BLUE:
+			ctx.fillStyle="#000000";
+			ctx.fillRect(375, 265, 5, 120);
+			ctx.fillStyle = "#0000ff";
+			ctx.fillRect(355, 375 - 24*characterAnimation.color[2], 45, 20);
+			ctx.strokeRect(355, 375 - 24*characterAnimation.color[2], 45, 20);
+
+			ctx.strokeRect(355, 410, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(358, 427);
+			ctx.lineTo(377.5, 413);
+			ctx.lineTo(397, 427);
+			ctx.stroke();
+			ctx.strokeRect(355, 435, 45, 20);
+			ctx.beginPath();
+			ctx.moveTo(358, 438);
+			ctx.lineTo(377.5, 452);
+			ctx.lineTo(397, 438);
+			ctx.stroke();
 		}
 	}
 	
 	this.update = function(){
 		if (dialogOpen){
 			characterAnimation.update();
+		}
+		cursorCounter++;
+		if (cursorCounter >= cursorCount){
+			cursorCounter = 0;
 		}
 	}
 	
@@ -1158,6 +1233,76 @@ var CharacterSettings = function(){
 	
 	this.isDialogOpen = function(){
 		return dialogOpen;
+	}
+	
+	this.handleInput = function(event){
+		if ( event.keyCode >= 65 && event.keyCode <= 90){
+			event.preventDefault();
+			cursorCounter = 15;
+			if (event.shiftKey){
+				characterName += String.fromCharCode(event.keyCode);
+			}else{
+				characterName += String.fromCharCode(event.keyCode + 32);
+			}
+		//This handles the backspace key
+		}else if (event.keyCode == 8){
+			event.preventDefault();
+			cursorCounter = 15;
+			characterName = characterName.slice(0, characterName.length - 1);
+		//This handles the enter key, which for now just closes the character settings
+		}else if (event.keyCode == 13){
+			dialogOpen = false;
+			
+		//This handles numbers and special characters by using the charMap function to assign them to their keycodes
+		}else{
+			var charMap = function(code, lower, upper){
+				if (event.keyCode == code){
+					if (event.shiftKey && upper){
+						characterName += upper;
+					}else{
+						characterName += lower;
+					}
+					cursorCounter = 15;
+					event.preventDefault();
+				}
+			}
+			charMap(32, " ");
+			//Top row number keys:
+			charMap(48, "0", ")");
+			charMap(49, "1", "!");
+			charMap(50, "2", "@");
+			charMap(51, "3", "#");
+			charMap(52, "4", "$");
+			charMap(53, "5", "%");
+			charMap(54, "6", "^");
+			charMap(55, "7", "&");
+			charMap(56, "8", "*");
+			charMap(57, "9", "(");
+			//Number pad keys:
+			charMap(96, "0");
+			charMap(97, "1");
+			charMap(98, "2");
+			charMap(99, "3");
+			charMap(100, "4");
+			charMap(101, "5");
+			charMap(102, "6");
+			charMap(103, "7");
+			charMap(104, "8");
+			charMap(105, "9");
+			charMap(106, "*");
+			charMap(107, "+");
+			charMap(109, "-");
+			charMap(110, ".");
+			charMap(111, "/");
+			//Punctuation keys:
+			charMap(186, ";", ":");
+			charMap(187, "=", "+");
+			charMap(188, ",", "<");
+			charMap(189, "-", "_");
+			charMap(190, ".", ">");
+			charMap(191, "/", "?");
+			charMap(222, "\'", "\"");
+		}
 	}
 }
 
